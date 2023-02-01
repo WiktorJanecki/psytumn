@@ -1,0 +1,13 @@
+[package]
+name = "psytumn"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+glam = "0.22.0"
+hecs = "0.9.1"
+sdl2 = { version = "0.35.2", features = ["image", "mixer"] }
+sdl2_particles = "0.1.0"
+time = "0.3.17"
