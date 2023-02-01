@@ -1,3 +1,5 @@
+use crate::level1::Level1State;
+
 
 mod level1;
 
@@ -9,6 +11,9 @@ enum Level{
 
 fn main() {
     const VERSION: u32 = 0;
+
+    println!("Welcome in console linux user/developer :)");
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -26,6 +31,7 @@ fn main() {
     let mut fps = 0;
 
     let mut level = Level::Intro;
+    let mut level1_state = Level1State::new();
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -58,10 +64,9 @@ fn main() {
             },
             Level::_Menu => todo!(),
             Level::Level1 => {
-                level1::update(_dt);
-                level1::render(&mut canvas);
+                level1::update(&mut level1_state, _dt);
+                level1::render(&level1_state, &mut canvas);
             },
         }
     }
-    println!("Hello, world!");
 }
