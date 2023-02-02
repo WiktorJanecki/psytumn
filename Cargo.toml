@@ -8,6 +8,6 @@ edition = "2021"
 [dependencies]
 glam = "0.22.0"
 hecs = "0.9.1"
-sdl2 = { version = "0.35.2", features = ["image", "mixer"] }
+sdl2 = { version = "0.35.2", features = ["image", "mixer", "unsafe_textures"] }
 sdl2_particles = "0.1.0"
 time = "0.3.17"

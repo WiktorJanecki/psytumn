@@ -1,5 +1,7 @@
-use crate::level1::Level1State;
 
+use crate::{level1::Level1State};
+
+mod texturemanager;
 
 mod level1;
 
@@ -15,6 +17,7 @@ fn main() {
     println!("Welcome in console linux user/developer :)");
 
     let sdl_context = sdl2::init().unwrap();
+    let _image_context = sdl2::image::init(sdl2::image::InitFlag::all()).unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
     let window = video_subsystem
@@ -29,10 +32,10 @@ fn main() {
     let mut fps_timer = time::Instant::now();
     let mut fps_counter = 0;
     let mut fps = 0;
-
+    
     let mut level = Level::Intro;
-    let mut level1_state = Level1State::new();
-
+    let mut level1_state = Level1State::new(&mut canvas);
+    
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -65,7 +68,7 @@ fn main() {
             Level::_Menu => todo!(),
             Level::Level1 => {
                 level1::update(&mut level1_state, _dt);
-                level1::render(&level1_state, &mut canvas);
+                level1::render(&mut level1_state, &mut canvas);
             },
         }
     }
