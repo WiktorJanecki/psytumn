@@ -32,14 +32,18 @@ impl Level1State{
 pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
     if !state.update_started{
         state.update_started = true;
-        let idle_animation: Animation = vec![
+        let idle_animation_player: Animation = vec![
             Keyframe{ x: 0, y: 0, width: 40, height: 40, duration: std::time::Duration::from_secs(1) },
             Keyframe{ x: 40, y: 0, width: 40, height: 40, duration: std::time::Duration::from_secs(1) }
         ];
+        let idle_animation_snake: Animation = vec![
+            Keyframe{ x: 0, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs(1) },
+            Keyframe{ x: 32, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs(1) }
+        ];
         let mut player_animation_state = components::Animation::default();
         let mut enemy_animation_state = components::Animation::default();
-        player_animation_state.state.play(&idle_animation);
-        enemy_animation_state.state.play(&idle_animation);
+        player_animation_state.state.play(&idle_animation_player);
+        enemy_animation_state.state.play(&idle_animation_snake);
         let _player = state.world.spawn((
             components::Player,
             components::Transform::default(),
@@ -50,7 +54,8 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
         ));
         let _enemy = state.world.spawn((
             components::Transform::with_position(640.0, 64.0),
-            components::Sprite{ filename: "res/player.png", size: UVec2::new(40,40) },
+            components::Sprite{ filename: "res/snake.png", size: UVec2::new(40,40) },
+            components::GhostAI::default(),
             enemy_animation_state,
         ));
         // perlin generate water
@@ -85,6 +90,16 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
         transform.position += controller.velocity * dt; // apply velocity
     }
 
+    // ghost ai
+    let target_transform = (state.world.query::<(&components::Player, &components::Transform)>().iter().last().expect("Expect a player for ai to be targeted").1).1.clone();
+    for (_id, (transform, ghost_ai)) in state.world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>(){
+        let difference = target_transform.position-transform.position;
+        if difference.length() <= ghost_ai.radius{
+            ghost_ai.velocity = difference.normalize()*ghost_ai.speed;
+            transform.position += dt * ghost_ai.velocity;
+        }
+    }
+
     // camera follow
     for (_id, transform) in &mut state.world.query::<With<&components::Transform,&components::CameraTarget>>(){
         let smooth_value = 15.0;
@@ -102,7 +117,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
 pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {    
     canvas.set_draw_color(sdl2::pixels::Color::RGB(39,9,31));
     canvas.clear();
-    let scale = 1;
+    let scale = 2;
     // render tilemap
     state.tilemap.values.iter().enumerate().for_each(|(x, xses)|{
         xses.iter().map(|f| f.as_ref()).enumerate().for_each(|(y, tile)|{

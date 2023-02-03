@@ -1,6 +1,7 @@
 use glam::{Vec2, UVec2};
 use sdl2_animation::AnimationState;
 
+#[derive(Clone)]
 pub struct Transform{
     pub position: Vec2,
     pub rotation: f32,
@@ -37,6 +38,18 @@ pub struct Sprite{
 
 pub struct Player;
 pub struct CameraTarget;
+
+pub struct GhostAI{
+    pub velocity: Vec2,
+    pub speed: f32,
+    pub radius: f32,
+}
+
+impl Default for GhostAI{
+    fn default() -> Self {
+        Self { velocity: Vec2::ZERO, speed: 256.0, radius: 512.0 + 128.0 }
+    }
+}
 pub struct PlayerController{
     pub velocity: Vec2,
     pub acceleration: Vec2,
