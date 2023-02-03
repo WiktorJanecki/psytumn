@@ -13,6 +13,12 @@ impl Default for Transform{
     }
 }
 
+impl Transform{
+    pub fn with_position(x: f32, y: f32) -> Self{
+        Self { position: Vec2::new(x,y), rotation: 0.0, scale: Vec2::new(1.0,1.0) }
+    }
+}
+
 
 pub struct Animation{
     pub state: AnimationState,

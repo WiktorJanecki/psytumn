@@ -30,13 +30,20 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
             Keyframe{ x: 40, y: 0, width: 40, height: 40, duration: std::time::Duration::from_secs(1) }
         ];
         let mut player_animation_state = components::Animation::default();
+        let mut enemy_animation_state = components::Animation::default();
         player_animation_state.state.play(&idle_animation);
-        let player = state.world.spawn((
+        enemy_animation_state.state.play(&idle_animation);
+        let _player = state.world.spawn((
             components::Player,
             components::Transform::default(),
             components::Sprite{ filename: "res/player.png", size: UVec2::new(40,40) },
             components::PlayerController::default(),
             player_animation_state,
+        ));
+        let _enemy = state.world.spawn((
+            components::Transform::with_position(640.0, 64.0),
+            components::Sprite{ filename: "res/player.png", size: UVec2::new(40,40) },
+            enemy_animation_state,
         ));
     }
     // Update
