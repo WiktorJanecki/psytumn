@@ -1,13 +1,14 @@
+use glam::UVec2;
 use sdl2::{render::{TextureCreator}, video::WindowContext};
 use sdl2_animation::{AnimationState, Keyframe, Animation};
 
-use crate::{texturemanager::{TextureManager}, input::InputState};
+use crate::{texturemanager::{TextureManager}, input::InputState, components};
 
 pub struct Level1State{
     update_started: bool,
     texture_creator: TextureCreator<WindowContext>,
     texture_manager: TextureManager,
-    player_animation_state: AnimationState,
+    world: hecs::World,
 }
 
 impl Level1State{
@@ -16,29 +17,44 @@ impl Level1State{
             update_started: false,
             texture_creator: canvas.texture_creator(),
             texture_manager: TextureManager::new(),
-            player_animation_state: AnimationState::new(),
+            world: hecs::World::new(),
         }
     }
 }
 
 pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
     if !state.update_started{
+        state.update_started = true;
         let idle_animation: Animation = vec![
             Keyframe{ x: 0, y: 0, width: 40, height: 40, duration: std::time::Duration::from_secs(1) },
             Keyframe{ x: 40, y: 0, width: 40, height: 40, duration: std::time::Duration::from_secs(1) }
         ];
-        state.player_animation_state.play(&idle_animation);
-        state.update_started = true;
-        println!("void Start(){{}}");
+        let mut player_animation_state = components::Animation::default();
+        player_animation_state.state.play(&idle_animation);
+        let player = state.world.spawn((
+            components::Player,
+            components::Transform::default(),
+            components::Sprite{ filename: "res/player.png", size: UVec2::new(40,40) },
+            player_animation_state,
+        ));
     }
-    state.player_animation_state.update(std::time::Duration::from_secs_f32(dt));
+    // Update
+
+
+    for (_id, animation_state) in state.world.query_mut::<&mut components::Animation>(){
+        animation_state.state.update(std::time::Duration::from_secs_f32(dt));
+    }
 }
 
 pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {    
     canvas.set_draw_color(sdl2::pixels::Color::RGB(39,9,31));
     canvas.clear();
     let scale = 3;
-    let texture = state.texture_manager.texture("player.png", &state.texture_creator);
-    let _ = canvas.copy(texture, state.player_animation_state.get_src(), sdl2::rect::Rect::new(64,64,40*scale,40*scale));
+    for (id, (sprite, transform)) in &mut state.world.query::<(&components::Sprite, &components::Transform)>(){
+        let dst = sdl2::rect::Rect::new(transform.position.x as i32, transform.position.y as i32,sprite.size.x * scale, sprite.size.y * scale);
+        let src = state.world.entity(id).unwrap().get::<&components::Animation>().and_then(|f|Some(f.state.get_src()));
+        let texture = state.texture_manager.texture(sprite.filename, &state.texture_creator);
+        let _ = canvas.copy(texture, src, dst);
+    }
     canvas.present();
 }

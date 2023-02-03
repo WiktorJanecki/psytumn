@@ -1,10 +1,10 @@
-use glam::Vec2;
+use glam::{Vec2, UVec2};
 use sdl2_animation::AnimationState;
 
 pub struct Transform{
-    position: Vec2,
-    rotation: f32,
-    scale: Vec2,
+    pub position: Vec2,
+    pub rotation: f32,
+    pub scale: Vec2,
 }
 
 impl Default for Transform{
@@ -15,7 +15,7 @@ impl Default for Transform{
 
 
 pub struct Animation{
-    state: AnimationState,
+    pub state: AnimationState,
 }
 
 impl Default for Animation{
@@ -23,3 +23,10 @@ impl Default for Animation{
         Self { state: AnimationState::new() }
     }
 }
+
+pub struct Sprite{
+    pub filename: &'static str,
+    pub size: UVec2,
+}
+
+pub struct Player;
