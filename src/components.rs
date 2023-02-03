@@ -55,10 +55,14 @@ pub struct PlayerController{
     pub acceleration: Vec2,
     pub dashing_timer: f32,
     pub dashing_time_left: f32,
+    pub can_move: bool,
 }
 
 impl Default for PlayerController {
     fn default() -> Self {
-        Self { velocity: Vec2::ZERO, acceleration: Vec2::ZERO, dashing_timer: 0.0, dashing_time_left: 0.0  }
+        Self { velocity: Vec2::ZERO, acceleration: Vec2::ZERO, dashing_timer: 0.0, dashing_time_left: 0.0, can_move: true  }
     }
 }
+
+pub struct DashingCrystal;
+pub struct PointCrystal;

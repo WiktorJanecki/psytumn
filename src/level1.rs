@@ -1,11 +1,11 @@
 use bracket_noise::prelude::{FastNoise, NoiseType};
 use glam::{UVec2, Vec2};
-use hecs::With;
+use hecs::{With, Entity};
 use rand::Rng;
-use sdl2::{render::{TextureCreator}, video::WindowContext};
+use sdl2::{render::{TextureCreator}, video::WindowContext, controller};
 use sdl2_animation::{Keyframe, Animation};
 
-use crate::{texturemanager::TextureManager, input::InputState, components, render::{Camera, Tilemap, Tile}};
+use crate::{texturemanager::TextureManager, input::InputState, components, render::{Camera, Tilemap, Tile}, Level};
 
 pub struct Level1State{
     update_started: bool,
@@ -14,6 +14,7 @@ pub struct Level1State{
     world: hecs::World,
     camera: Camera,
     tilemap: Tilemap,
+    points: u32,
 }
 
 impl Level1State{
@@ -25,11 +26,44 @@ impl Level1State{
             world: hecs::World::new(),
             camera: Camera::new(),
             tilemap: Tilemap::new(50, 50, 32, 32),
+            points: 0,
         }
     }
 }
 
-pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
+fn create_dash_crystal_on(state: &mut Level1State, x: i32, y:i32){
+    let mut crystal_animation_state = components::Animation::default();
+    crystal_animation_state.state.play(&vec![
+        Keyframe{ x: 0, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(1.0) },
+        Keyframe{ x: 32, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(0.1) },
+        Keyframe{ x: 64, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(0.1) },
+        Keyframe{ x: 96, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(0.1) },
+    ]);
+    state.world.spawn((
+        components::Transform{ position: Vec2::new(x as f32, y as f32), rotation: 0.0, scale: Vec2::new(1.0,1.0) },
+        components::Sprite{ filename: "res/crystal.png", size: UVec2::new(40,40) },
+        components::DashingCrystal,
+        crystal_animation_state,
+    ));
+}
+
+fn create_point_crystal_on(state: &mut Level1State, x: i32, y:i32){
+    let mut crystal_animation_state = components::Animation::default();
+    crystal_animation_state.state.play(&vec![
+        Keyframe{ x: 0, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(1.0) },
+        Keyframe{ x: 32, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(0.1) },
+        Keyframe{ x: 64, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(0.1) },
+        Keyframe{ x: 96, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(0.1) },
+    ]);
+    state.world.spawn((
+        components::Transform{ position: Vec2::new(x as f32, y as f32), rotation: 0.0, scale: Vec2::new(1.0,1.0) },
+        components::Sprite{ filename: "res/crystal_point.png", size: UVec2::new(40,40) },
+        components::PointCrystal,
+        crystal_animation_state,
+    ));
+}
+
+pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level: &mut Level){
     if !state.update_started{
         state.update_started = true;
         let idle_animation_player: Animation = vec![
@@ -37,8 +71,8 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
             Keyframe{ x: 40, y: 0, width: 40, height: 40, duration: std::time::Duration::from_secs(1) }
         ];
         let idle_animation_snake: Animation = vec![
-            Keyframe{ x: 0, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs(1) },
-            Keyframe{ x: 32, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs(1) }
+            Keyframe{ x: 0, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(0.5) },
+            Keyframe{ x: 32, y: 0, width: 32, height: 32, duration: std::time::Duration::from_secs_f32(0.5) }
         ];
         let mut player_animation_state = components::Animation::default();
         let mut enemy_animation_state = components::Animation::default();
@@ -73,6 +107,12 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
                 }
             }
         }
+        for _ in 0..32{
+            create_dash_crystal_on(state, rng.gen_range(-1600..1600), rng.gen_range(-1600..1600));
+        }
+        for _ in 0..3{
+            create_point_crystal_on(state, rng.gen_range(-1600..1600), rng.gen_range(-1600..1600));
+        }
     }
     // Update
 
@@ -96,22 +136,73 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
             is_dashing = true;
             controller.dashing_time_left = dash_time;
             controller.dashing_timer = dash_cooldown;
+            controller.can_move = true;
         }
-        if is_dashing {
-            transform.position += input_state.movement.normalize_or_zero() * dt * max_vel * 3.0;
-        }
+        if controller.can_move{
+            if is_dashing {
+                transform.position += input_state.movement.normalize_or_zero() * dt * max_vel * 3.0;
+            }
 
-        transform.position += controller.velocity * dt; // apply velocity
+            transform.position += controller.velocity * dt; // apply velocity
+        }
     }
 
     // ghost ai
-    let target_transform = (state.world.query::<(&components::Player, &components::Transform)>().iter().last().expect("Expect a player for ai to be targeted").1).1.clone();
-    for (_id, (transform, ghost_ai)) in state.world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>(){
-        let difference = target_transform.position-transform.position;
-        if difference.length() <= ghost_ai.radius{
-            ghost_ai.velocity = difference.normalize()*ghost_ai.speed;
-            transform.position += dt * ghost_ai.velocity;
+    let wrapped_target_transform = state.world.query::<(&components::Player, &components::Transform)>().iter().last().map(|f|{return (f.1).1.clone()});
+    if let Some(target_transform) = wrapped_target_transform{ // if target for ai exist
+        for (_id, (transform, ghost_ai)) in state.world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>(){
+            let difference = target_transform.position-transform.position;
+            if difference.length() <= ghost_ai.radius{
+                ghost_ai.velocity = difference.normalize()*ghost_ai.speed;
+                transform.position += dt * ghost_ai.velocity;
+            }
         }
+    }
+
+    // crystal handling
+    let mut target_pos = None;
+    let mut target_size = None;
+    for (_id, (transform, sprite, _)) in &mut state.world.query::<(&components::Transform, &components::Sprite, &components::PlayerController)>(){
+        target_pos = Some(transform.position);
+        target_size = Some(sprite.size);
+    }
+    let mut crystals_to_delete = vec![];
+    let mut should_regenerate_dash = false;
+    if target_pos.is_some() && target_size.is_some(){
+        let pos = target_pos.unwrap();
+        let size = target_size.unwrap();
+        for (crystal_id, (transform, sprite, _ )) in &mut state.world.query::<(&components::Transform, &components::Sprite, &components::DashingCrystal)>(){
+            if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(sdl2::rect::Rect::new(transform.position.x as i32, transform.position.y as i32, sprite.size.x, sprite.size.y)){
+                crystals_to_delete.push(crystal_id);
+                should_regenerate_dash = true;
+            }
+        }
+    }
+    if should_regenerate_dash{
+        for (_id, controller) in state.world.query_mut::<&mut components::PlayerController>(){
+            controller.dashing_timer = -0.1;
+            controller.velocity = Vec2::ZERO;
+            controller.can_move = false;
+        }
+    }
+    // Point crystal
+    if target_pos.is_some() && target_size.is_some(){
+        let pos = target_pos.unwrap();
+        let size = target_size.unwrap();
+        for (crystal_id, (transform, sprite, _ )) in &mut state.world.query::<(&components::Transform, &components::Sprite, &components::PointCrystal)>(){
+            if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(sdl2::rect::Rect::new(transform.position.x as i32, transform.position.y as i32, sprite.size.x, sprite.size.y)){
+                crystals_to_delete.push(crystal_id);
+                state.points += 1;
+            }
+        }
+    }
+
+    if state.points >= 3{
+        *level = Level::Intro;
+    }
+
+    for crystal in crystals_to_delete.iter(){
+        let _ = state.world.despawn(*crystal);
     }
 
     // camera follow

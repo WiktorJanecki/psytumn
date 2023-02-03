@@ -8,7 +8,7 @@ mod render;
 
 mod level1;
 
-enum Level{
+pub enum Level{
     Intro, 
     _Menu,
     Level1,
@@ -61,12 +61,13 @@ fn main() {
             Level::Intro => {
                 canvas.set_draw_color(sdl2::pixels::Color::RGB(3, 0, 52));
                 canvas.clear();
+                level1_state = Level1State::new(&mut canvas);
                 level = Level::Level1;
                 canvas.present();
             },
             Level::_Menu => todo!(),
             Level::Level1 => {
-                level1::update(&mut level1_state, dt, &input_state);
+                level1::update(&mut level1_state, dt, &input_state, &mut level);
                 level1::render(&mut level1_state, &mut canvas);
             },
         }
