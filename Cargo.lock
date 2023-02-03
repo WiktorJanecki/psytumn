@@ -92,6 +92,7 @@ dependencies = [
  "glam",
  "hecs",
  "sdl2",
+ "sdl2_animation",
  "sdl2_particles",
  "time",
 ]
@@ -147,6 +148,13 @@ dependencies = [
  "cfg-if",
  "libc",
  "version-compare",
+]
+
+[[package]]
+name = "sdl2_animation"
+version = "0.1.0"
+dependencies = [
+ "sdl2",
 ]
 
 [[package]]

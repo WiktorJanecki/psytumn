@@ -2,7 +2,7 @@
 use crate::{level1::Level1State};
 
 mod texturemanager;
-
+mod components;
 mod level1;
 
 enum Level{
