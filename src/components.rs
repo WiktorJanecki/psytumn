@@ -30,3 +30,13 @@ pub struct Sprite{
 }
 
 pub struct Player;
+pub struct PlayerController{
+    pub velocity: Vec2,
+    pub acceleration: Vec2,
+}
+
+impl Default for PlayerController {
+    fn default() -> Self {
+        Self { velocity: Vec2::ZERO, acceleration: Vec2::ZERO }
+    }
+}

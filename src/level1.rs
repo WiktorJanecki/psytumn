@@ -1,6 +1,6 @@
 use glam::UVec2;
 use sdl2::{render::{TextureCreator}, video::WindowContext};
-use sdl2_animation::{AnimationState, Keyframe, Animation};
+use sdl2_animation::{Keyframe, Animation};
 
 use crate::{texturemanager::{TextureManager}, input::InputState, components};
 
@@ -35,11 +35,25 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
             components::Player,
             components::Transform::default(),
             components::Sprite{ filename: "res/player.png", size: UVec2::new(40,40) },
+            components::PlayerController::default(),
             player_animation_state,
         ));
     }
     // Update
 
+    for (_id, (transform, controller)) in state.world.query_mut::<(&mut components::Transform, &mut components::PlayerController)>(){
+        let friction = 50.0 * 64.0;
+        let max_vel = 12.0 * 64.0;    // GREAT VALUES 64 is one tile
+        let accel = 130.0 * 64.0;
+
+        controller.acceleration = input_state.movement * accel; // apply movement direction
+        controller.velocity += dt * controller.acceleration; // apply acceleration
+        if controller.velocity.length() != 0.0{
+            controller.velocity *= 1.0 - (friction * dt ) / controller.velocity.length(); // apply friction
+        }
+        controller.velocity = controller.velocity.clamp_length_max(max_vel); // clamp velocity
+        transform.position += controller.velocity * dt; // apply velocity
+    }
 
     for (_id, animation_state) in state.world.query_mut::<&mut components::Animation>(){
         animation_state.state.update(std::time::Duration::from_secs_f32(dt));
