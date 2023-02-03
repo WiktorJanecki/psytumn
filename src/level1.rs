@@ -1,14 +1,19 @@
-use glam::UVec2;
+use bracket_noise::prelude::{FastNoise, NoiseType};
+use glam::{UVec2, Vec2};
+use hecs::With;
+use rand::Rng;
 use sdl2::{render::{TextureCreator}, video::WindowContext};
 use sdl2_animation::{Keyframe, Animation};
 
-use crate::{texturemanager::{TextureManager}, input::InputState, components};
+use crate::{texturemanager::TextureManager, input::InputState, components, render::{Camera, Tilemap, Tile}};
 
 pub struct Level1State{
     update_started: bool,
     texture_creator: TextureCreator<WindowContext>,
     texture_manager: TextureManager,
     world: hecs::World,
+    camera: Camera,
+    tilemap: Tilemap,
 }
 
 impl Level1State{
@@ -18,6 +23,8 @@ impl Level1State{
             texture_creator: canvas.texture_creator(),
             texture_manager: TextureManager::new(),
             world: hecs::World::new(),
+            camera: Camera::new(),
+            tilemap: Tilemap::new(50, 50, 32, 32),
         }
     }
 }
@@ -37,6 +44,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
             components::Player,
             components::Transform::default(),
             components::Sprite{ filename: "res/player.png", size: UVec2::new(40,40) },
+            components::CameraTarget,
             components::PlayerController::default(),
             player_animation_state,
         ));
@@ -45,6 +53,21 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
             components::Sprite{ filename: "res/player.png", size: UVec2::new(40,40) },
             enemy_animation_state,
         ));
+        // perlin generate water
+        let mut rng = rand::thread_rng();
+        let mut noise = FastNoise::seeded(rng.gen());
+        noise.set_noise_type(NoiseType::Perlin);
+        noise.set_frequency(0.09);
+        let max_x = state.tilemap.values.len();
+        let max_y = state.tilemap.values.get(0).unwrap().len();
+        for x in 0..max_x{
+            for y in 0..max_y{
+                let value = noise.get_noise(x.clone() as f32,y.clone() as f32);
+                if value > 0.2{
+                    state.tilemap.set(x,y, Some(Tile{filename: "res/water.png"}));
+                }
+            }
+        }
     }
     // Update
 
@@ -62,6 +85,15 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
         transform.position += controller.velocity * dt; // apply velocity
     }
 
+    // camera follow
+    for (_id, transform) in &mut state.world.query::<With<&components::Transform,&components::CameraTarget>>(){
+        let smooth_value = 15.0;
+        let offset = Vec2::new(-1280.0/2.0 + 40.0, -720.0/2.0 + 40.0); // TODO: MAKE IT NOT HARDCODED
+        let target_position = transform.position + offset;
+        let smoothed_position = state.camera.position.lerp(target_position, smooth_value * dt);
+        state.camera.position = smoothed_position;
+    }
+
     for (_id, animation_state) in state.world.query_mut::<&mut components::Animation>(){
         animation_state.state.update(std::time::Duration::from_secs_f32(dt));
     }
@@ -70,9 +102,26 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
 pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {    
     canvas.set_draw_color(sdl2::pixels::Color::RGB(39,9,31));
     canvas.clear();
-    let scale = 3;
+    let scale = 1;
+    // render tilemap
+    state.tilemap.values.iter().enumerate().for_each(|(x, xses)|{
+        xses.iter().map(|f| f.as_ref()).enumerate().for_each(|(y, tile)|{
+            if let Some(tile) = tile{
+                let texture = state.texture_manager.texture(tile.filename, &state.texture_creator);
+                let dst = sdl2::rect::Rect::new(
+                    state.tilemap.position().x + state.camera.x() + (state.tilemap.tile_width * scale) as i32* x as i32,
+                    state.tilemap.position().y + state.camera.y() + (state.tilemap.tile_height * scale) as i32 * y as i32,
+                    state.tilemap.tile_width * scale,
+                    state.tilemap.tile_height * scale
+                );
+                let _ = canvas.copy(texture, None, dst);
+            }
+            
+        })
+    });
+    // render sprites
     for (id, (sprite, transform)) in &mut state.world.query::<(&components::Sprite, &components::Transform)>(){
-        let dst = sdl2::rect::Rect::new(transform.position.x as i32, transform.position.y as i32,sprite.size.x * scale, sprite.size.y * scale);
+        let dst = sdl2::rect::Rect::new(state.camera.x() + transform.position.x as i32, state.camera.y() + transform.position.y as i32,sprite.size.x * scale, sprite.size.y * scale);
         let src = state.world.entity(id).unwrap().get::<&components::Animation>().and_then(|f|Some(f.state.get_src()));
         let texture = state.texture_manager.texture(sprite.filename, &state.texture_creator);
         let _ = canvas.copy(texture, src, dst);

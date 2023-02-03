@@ -4,6 +4,7 @@ use crate::{level1::Level1State, input::InputState};
 mod texturemanager;
 mod components;
 mod input;
+mod render;
 
 mod level1;
 
@@ -60,9 +61,7 @@ fn main() {
             Level::Intro => {
                 canvas.set_draw_color(sdl2::pixels::Color::RGB(3, 0, 52));
                 canvas.clear();
-                if fps > 0 { // after a second
-                    level = Level::Level1
-                }
+                level = Level::Level1;
                 canvas.present();
             },
             Level::_Menu => todo!(),

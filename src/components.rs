@@ -36,6 +36,7 @@ pub struct Sprite{
 }
 
 pub struct Player;
+pub struct CameraTarget;
 pub struct PlayerController{
     pub velocity: Vec2,
     pub acceleration: Vec2,
