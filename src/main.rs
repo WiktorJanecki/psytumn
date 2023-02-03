@@ -1,15 +1,14 @@
+use crate::{input::InputState, level1::Level1State};
 
-use crate::{level1::Level1State, input::InputState};
-
-mod texturemanager;
 mod components;
 mod input;
 mod render;
+mod texturemanager;
 
 mod level1;
 
-pub enum Level{
-    Intro, 
+pub enum Level {
+    Intro,
     _Menu,
     Level1,
 }
@@ -36,40 +35,45 @@ fn main() {
     let mut fps_timer = time::Instant::now();
     let mut fps_counter = 0;
     let mut fps = 0;
-    
+
     let mut level = Level::Intro;
     let mut level1_state = Level1State::new(&mut canvas);
-    
+
     loop {
         input_state.handle_events(&mut event_pump);
-        if input_state.quit{
-            break; 
+        if input_state.quit {
+            break;
         }
 
         let now = time::Instant::now();
         dt = (now - dt_timer).as_seconds_f32();
         dt_timer = now;
-        if now-fps_timer >= time::Duration::SECOND{
+        if now - fps_timer >= time::Duration::SECOND {
             fps_timer = now;
             fps = fps_counter;
             fps_counter = 0;
         }
-        fps_counter+=1;
-        let _ = canvas.window_mut().set_title(&format!("Psytumn    FPS: {}    Version: {}    Date: {}",fps, VERSION, time::OffsetDateTime::now_utc().date()));
+        fps_counter += 1;
+        let _ = canvas.window_mut().set_title(&format!(
+            "Psytumn    FPS: {}    Version: {}    Date: {}",
+            fps,
+            VERSION,
+            time::OffsetDateTime::now_utc().date()
+        ));
 
-        match level{
+        match level {
             Level::Intro => {
                 canvas.set_draw_color(sdl2::pixels::Color::RGB(3, 0, 52));
                 canvas.clear();
                 level1_state = Level1State::new(&mut canvas);
                 level = Level::Level1;
                 canvas.present();
-            },
+            }
             Level::_Menu => todo!(),
             Level::Level1 => {
                 level1::update(&mut level1_state, dt, &input_state, &mut level);
                 level1::render(&mut level1_state, &mut canvas);
-            },
+            }
         }
     }
 }
