@@ -87,6 +87,20 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
             controller.velocity *= 1.0 - (friction * dt ) / controller.velocity.length(); // apply friction
         }
         controller.velocity = controller.velocity.clamp_length_max(max_vel); // clamp velocity
+        controller.dashing_time_left -= dt;
+        controller.dashing_timer -= dt;
+        let dash_time = 0.2;
+        let dash_cooldown = 0.5;
+        let mut is_dashing = controller.dashing_time_left > 0.0;
+        if !is_dashing && controller.dashing_timer <= 0.0 && input_state.dash{
+            is_dashing = true;
+            controller.dashing_time_left = dash_time;
+            controller.dashing_timer = dash_cooldown;
+        }
+        if is_dashing {
+            transform.position += input_state.movement.normalize_or_zero() * dt * max_vel * 3.0;
+        }
+
         transform.position += controller.velocity * dt; // apply velocity
     }
 

@@ -53,10 +53,12 @@ impl Default for GhostAI{
 pub struct PlayerController{
     pub velocity: Vec2,
     pub acceleration: Vec2,
+    pub dashing_timer: f32,
+    pub dashing_time_left: f32,
 }
 
 impl Default for PlayerController {
     fn default() -> Self {
-        Self { velocity: Vec2::ZERO, acceleration: Vec2::ZERO }
+        Self { velocity: Vec2::ZERO, acceleration: Vec2::ZERO, dashing_timer: 0.0, dashing_time_left: 0.0  }
     }
 }
