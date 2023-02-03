@@ -1,7 +1,7 @@
 use sdl2::{render::{TextureCreator}, video::WindowContext};
 use sdl2_animation::{AnimationState, Keyframe, Animation};
 
-use crate::texturemanager::{TextureManager};
+use crate::{texturemanager::{TextureManager}, input::InputState};
 
 pub struct Level1State{
     update_started: bool,
@@ -21,7 +21,7 @@ impl Level1State{
     }
 }
 
-pub fn update(state: &mut Level1State, dt: f32){
+pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState){
     if !state.update_started{
         let idle_animation: Animation = vec![
             Keyframe{ x: 0, y: 0, width: 40, height: 40, duration: std::time::Duration::from_secs(1) },

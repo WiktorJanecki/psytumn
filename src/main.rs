@@ -1,8 +1,10 @@
 
-use crate::{level1::Level1State};
+use crate::{level1::Level1State, input::InputState};
 
 mod texturemanager;
 mod components;
+mod input;
+
 mod level1;
 
 enum Level{
@@ -27,7 +29,8 @@ fn main() {
         .unwrap();
     let mut canvas = window.into_canvas().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
-    let mut _dt;
+    let mut input_state = InputState::new();
+    let mut dt;
     let mut dt_timer = time::Instant::now();
     let mut fps_timer = time::Instant::now();
     let mut fps_counter = 0;
@@ -36,17 +39,14 @@ fn main() {
     let mut level = Level::Intro;
     let mut level1_state = Level1State::new(&mut canvas);
     
-    'running: loop {
-        for event in event_pump.poll_iter() {
-            match event {
-                sdl2::event::Event::Quit { .. } |
-                sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::Escape), .. } => {break 'running;} 
-                _ => {}
-            }
+    loop {
+        input_state.handle_events(&mut event_pump);
+        if input_state.quit{
+            break; 
         }
-        
+
         let now = time::Instant::now();
-        _dt = (now - dt_timer).as_seconds_f32();
+        dt = (now - dt_timer).as_seconds_f32();
         dt_timer = now;
         if now-fps_timer >= time::Duration::SECOND{
             fps_timer = now;
@@ -67,7 +67,7 @@ fn main() {
             },
             Level::_Menu => todo!(),
             Level::Level1 => {
-                level1::update(&mut level1_state, _dt);
+                level1::update(&mut level1_state, dt, &input_state);
                 level1::render(&mut level1_state, &mut canvas);
             },
         }
