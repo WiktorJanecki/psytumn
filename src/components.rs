@@ -45,8 +45,8 @@ pub struct Sprite {
     pub size: UVec2,
 }
 
-pub struct Bullet{
-    pub velocity: Vec2
+pub struct Bullet {
+    pub velocity: Vec2,
 }
 
 pub struct Player;

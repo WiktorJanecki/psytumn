@@ -26,11 +26,10 @@ pub struct Level1State<'a> {
     music: sdl2::mixer::Music<'a>,
     sound_dash: sdl2::mixer::Chunk,
     sound_shoot: sdl2::mixer::Chunk,
-    sound_crystal:sdl2::mixer::Chunk,
-
+    sound_crystal: sdl2::mixer::Chunk,
 }
 
-impl <'a> Level1State <'a> {
+impl<'a> Level1State<'a> {
     pub fn new(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) -> Self {
         let music = sdl2::mixer::Music::from_file("res/music.wav").unwrap();
         let sound_dash = sdl2::mixer::Chunk::from_file("res/dash.wav").unwrap();
@@ -149,7 +148,7 @@ fn create_point_crystal_on(state: &mut Level1State, x: i32, y: i32) {
     ));
 }
 
-fn create_enemy_on(state: &mut Level1State, x: i32, y: i32){
+fn create_enemy_on(state: &mut Level1State, x: i32, y: i32) {
     let idle_animation_snake: Animation = vec![
         Keyframe {
             x: 0,
@@ -179,7 +178,7 @@ fn create_enemy_on(state: &mut Level1State, x: i32, y: i32){
     ));
 }
 
-fn create_bullet(state: &mut Level1State, position: Vec2, direction: Vec2){
+fn create_bullet(state: &mut Level1State, position: Vec2, direction: Vec2) {
     let speed = 64.0 * 15.0;
     state.world.spawn((
         components::Transform::with_position(position.x, position.y),
@@ -187,7 +186,9 @@ fn create_bullet(state: &mut Level1State, position: Vec2, direction: Vec2){
             filename: "res/bullet.png",
             size: UVec2::new(16, 16),
         },
-        components::Bullet{velocity: direction * speed},
+        components::Bullet {
+            velocity: direction * speed,
+        },
     ));
 }
 
@@ -198,7 +199,6 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
 
         let _ = state.music.play(-1);
         sdl2::mixer::Music::set_volume(10);
-
 
         let idle_animation_player: Animation = vec![
             Keyframe {
@@ -266,16 +266,23 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
     }
     // Update
 
-    for (_id, (transform, bullet)) in state.world.query_mut::<(&mut components::Transform, &components::Bullet)>(){
+    for (_id, (transform, bullet)) in state
+        .world
+        .query_mut::<(&mut components::Transform, &components::Bullet)>()
+    {
         transform.position += bullet.velocity * dt;
     }
 
     state.enemy_spawner_timer -= dt;
     state.attack_timer -= dt;
-    if state.enemy_spawner_timer <= 0.0{
+    if state.enemy_spawner_timer <= 0.0 {
         let enemy_spawn_cooldown = 1.0;
         state.enemy_spawner_timer = enemy_spawn_cooldown;
-        create_enemy_on(state,rng.gen_range(-1600..1600),rng.gen_range(-1600..1600));
+        create_enemy_on(
+            state,
+            rng.gen_range(-1600..1600),
+            rng.gen_range(-1600..1600),
+        );
     }
 
     for (_id, (transform, controller)) in state.world.query_mut::<(
@@ -298,7 +305,11 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
         let dash_time = 0.2;
         let dash_cooldown = 0.5;
         let mut is_dashing = controller.dashing_time_left > 0.0;
-        if !is_dashing && controller.dashing_timer <= 0.0 && input_state.dash && input_state.movement != Vec2::ZERO{
+        if !is_dashing
+            && controller.dashing_timer <= 0.0
+            && input_state.dash
+            && input_state.movement != Vec2::ZERO
+        {
             let _ = sdl2::mixer::Channel::all().play(&state.sound_dash, 0);
             is_dashing = true;
             controller.dashing_time_left = dash_time;
@@ -349,36 +360,36 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
     let mut crystals_to_delete = vec![];
     let mut should_regenerate_dash = false;
     if target_pos.is_some() && target_size.is_some() {
-            let pos = target_pos.unwrap();
-            let size = target_size.unwrap();
+        let pos = target_pos.unwrap();
+        let size = target_size.unwrap();
 
-            if input_state.attack && state.attack_timer <= 0.0{
-                let attack_cooldown = 1.0;
-                state.attack_timer = attack_cooldown;
-                let direction = ((input_state.mouse_pos+state.camera.position)- pos).normalize_or_zero();
-                let _ = sdl2::mixer::Channel::all().play(&state.sound_shoot, 0);
-                create_bullet(state, pos, direction);
+        if input_state.attack && state.attack_timer <= 0.0 {
+            let attack_cooldown = 1.0;
+            state.attack_timer = attack_cooldown;
+            let direction =
+                ((input_state.mouse_pos + state.camera.position) - pos).normalize_or_zero();
+            let _ = sdl2::mixer::Channel::all().play(&state.sound_shoot, 0);
+            create_bullet(state, pos, direction);
+        }
+
+        for (crystal_id, (transform, sprite, _)) in &mut state.world.query::<(
+            &components::Transform,
+            &components::Sprite,
+            &components::DashingCrystal,
+        )>() {
+            if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(
+                sdl2::rect::Rect::new(
+                    transform.position.x as i32,
+                    transform.position.y as i32,
+                    sprite.size.x,
+                    sprite.size.y,
+                ),
+            ) {
+                crystals_to_delete.push(crystal_id);
+                should_regenerate_dash = true;
             }
+        }
 
-
-            for (crystal_id, (transform, sprite, _)) in &mut state.world.query::<(
-                &components::Transform,
-                &components::Sprite,
-                &components::DashingCrystal,
-            )>() {
-                if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(
-                    sdl2::rect::Rect::new(
-                        transform.position.x as i32,
-                        transform.position.y as i32,
-                        sprite.size.x,
-                        sprite.size.y,
-                    ),
-                ) {
-                    crystals_to_delete.push(crystal_id);
-                    should_regenerate_dash = true;
-                }
-            }
-            
         if should_regenerate_dash {
             for (_id, controller) in state.world.query_mut::<&mut components::PlayerController>() {
                 controller.dashing_timer = -0.1;
@@ -407,7 +418,11 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
                 state.points += 1;
             }
         }
-        for (_id, (transform, sprite, _)) in &mut state.world.query::<(&components::Transform, &components::Sprite, &components::GhostAI)>(){
+        for (_id, (transform, sprite, _)) in &mut state.world.query::<(
+            &components::Transform,
+            &components::Sprite,
+            &components::GhostAI,
+        )>() {
             if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(
                 sdl2::rect::Rect::new(
                     transform.position.x as i32,
@@ -419,7 +434,6 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
                 panic!("GAME OVER");
             }
         }
-    
     }
 
     if state.points >= 3 {
@@ -433,11 +447,29 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
     // Bullets killing
     let mut bullets_ids_to_kill = vec![];
     let mut enemies_ids_to_kill = vec![];
-    for (bullet_id, (transform, sprite, _ )) in &mut state.world.query::<(&components::Transform, &components::Sprite, &components::Bullet)>(){
-        let bullet_rect = sdl2::rect::Rect::new(transform.position.x as i32, transform.position.y as i32, sprite.size.x, sprite.size.y);
-        for (enemy_id, (enemy_transform, enemy_sprite, _)) in &mut state.world.query::<(&components::Transform, &components::Sprite, &components::GhostAI)>(){
-            let enemy_rect = sdl2::rect::Rect::new(enemy_transform.position.x as i32, enemy_transform.position.y as i32, enemy_sprite.size.x, enemy_sprite.size.y);
-            if bullet_rect.has_intersection(enemy_rect){
+    for (bullet_id, (transform, sprite, _)) in &mut state.world.query::<(
+        &components::Transform,
+        &components::Sprite,
+        &components::Bullet,
+    )>() {
+        let bullet_rect = sdl2::rect::Rect::new(
+            transform.position.x as i32,
+            transform.position.y as i32,
+            sprite.size.x,
+            sprite.size.y,
+        );
+        for (enemy_id, (enemy_transform, enemy_sprite, _)) in &mut state.world.query::<(
+            &components::Transform,
+            &components::Sprite,
+            &components::GhostAI,
+        )>() {
+            let enemy_rect = sdl2::rect::Rect::new(
+                enemy_transform.position.x as i32,
+                enemy_transform.position.y as i32,
+                enemy_sprite.size.x,
+                enemy_sprite.size.y,
+            );
+            if bullet_rect.has_intersection(enemy_rect) {
                 bullets_ids_to_kill.push(bullet_id);
                 enemies_ids_to_kill.push(enemy_id);
                 break;

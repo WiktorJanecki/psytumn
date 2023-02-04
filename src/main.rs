@@ -14,7 +14,7 @@ pub enum Level {
 }
 
 fn main() {
-    const VERSION: u32 = 0;
+    const VERSION: u32 = 1;
 
     println!("Welcome in console linux user/developer :)");
 
@@ -22,7 +22,13 @@ fn main() {
     let _image_context = sdl2::image::init(sdl2::image::InitFlag::all()).unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let _audio_subsystem = sdl_context.audio().unwrap();
-    sdl2::mixer::open_audio(sdl2::mixer::DEFAULT_FREQUENCY, sdl2::mixer::DEFAULT_FORMAT, sdl2::mixer::DEFAULT_CHANNELS, 1024).unwrap(); // 1024 is default
+    sdl2::mixer::open_audio(
+        sdl2::mixer::DEFAULT_FREQUENCY,
+        sdl2::mixer::DEFAULT_FORMAT,
+        sdl2::mixer::DEFAULT_CHANNELS,
+        1024,
+    )
+    .unwrap(); // 1024 is default
     let _mixer_context = sdl2::mixer::init(sdl2::mixer::InitFlag::all()).unwrap();
     sdl2::mixer::allocate_channels(16); // how many sounds can play simultaneously
     let mut sound_win = sdl2::mixer::Chunk::from_file("res/win.wav").unwrap();

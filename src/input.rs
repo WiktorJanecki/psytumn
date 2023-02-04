@@ -78,10 +78,15 @@ impl InputState {
                     keycode: Some(Keycode::D),
                     ..
                 } => self.r = false,
-                Event::MouseButtonDown { mouse_btn: btn, x, y, .. } => {
+                Event::MouseButtonDown {
+                    mouse_btn: btn,
+                    x,
+                    y,
+                    ..
+                } => {
                     if btn == MouseButton::Left {
                         self.attack = true;
-                        self.mouse_pos = Vec2::new(x as f32 ,y as f32);
+                        self.mouse_pos = Vec2::new(x as f32, y as f32);
                     }
                 }
                 _ => {}
