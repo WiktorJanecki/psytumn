@@ -4,6 +4,7 @@ use sdl2::{event::Event, keyboard::Keycode, mouse::MouseButton, EventPump};
 pub struct InputState {
     pub movement: Vec2,
     pub shooting: Vec2, // TODO: not implemented
+    pub mouse_pos: Vec2,
     pub attack: bool,
     pub dash: bool,
     pub quit: bool,
@@ -26,6 +27,7 @@ impl InputState {
             r: false,
             u: false,
             d: false,
+            mouse_pos: Vec2::ZERO,
         }
     }
     pub fn handle_events(self: &mut Self, pump: &mut EventPump) {
@@ -76,9 +78,10 @@ impl InputState {
                     keycode: Some(Keycode::D),
                     ..
                 } => self.r = false,
-                Event::MouseButtonDown { mouse_btn: btn, .. } => {
+                Event::MouseButtonDown { mouse_btn: btn, x, y, .. } => {
                     if btn == MouseButton::Left {
-                        self.attack = true
+                        self.attack = true;
+                        self.mouse_pos = Vec2::new(x as f32 ,y as f32);
                     }
                 }
                 _ => {}

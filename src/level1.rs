@@ -7,7 +7,7 @@ use sdl2_animation::{Animation, Keyframe};
 
 use crate::{
     components,
-    input::InputState,
+    input::{InputState, self},
     render::{Camera, Tile, Tilemap},
     texturemanager::TextureManager,
     Level,
@@ -22,6 +22,7 @@ pub struct Level1State {
     tilemap: Tilemap,
     points: u32,
     enemy_spawner_timer: f32,
+    attack_timer: f32,
 }
 
 impl Level1State {
@@ -35,6 +36,7 @@ impl Level1State {
             tilemap: Tilemap::new(50, 50, 32, 32),
             points: 0,
             enemy_spawner_timer: 0.0,
+            attack_timer: 0.0,
         }
     }
 }
@@ -163,6 +165,18 @@ fn create_enemy_on(state: &mut Level1State, x: i32, y: i32){
     ));
 }
 
+fn create_bullet(state: &mut Level1State, position: Vec2, direction: Vec2){
+    let speed = 64.0 * 20.0;
+    state.world.spawn((
+        components::Transform::with_position(position.x, position.y),
+        components::Sprite {
+            filename: "res/bullet.png",
+            size: UVec2::new(16, 16),
+        },
+        components::Bullet{velocity: direction * speed},
+    ));
+}
+
 pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level: &mut Level) {
     let mut rng = rand::thread_rng();
     if !state.update_started {
@@ -233,7 +247,12 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
     }
     // Update
 
+    for (_id, (transform, bullet)) in state.world.query_mut::<(&mut components::Transform, &components::Bullet)>(){
+        transform.position += bullet.velocity * dt;
+    }
+
     state.enemy_spawner_timer -= dt;
+    state.attack_timer -= dt;
     if state.enemy_spawner_timer <= 0.0{
         let enemy_spawn_cooldown = 1.0;
         state.enemy_spawner_timer = enemy_spawn_cooldown;
@@ -312,6 +331,15 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
     if target_pos.is_some() && target_size.is_some() {
             let pos = target_pos.unwrap();
             let size = target_size.unwrap();
+
+            if input_state.attack && state.attack_timer <= 0.0{
+                let attack_cooldown = 1.0;
+                state.attack_timer = attack_cooldown;
+                let direction = ((input_state.mouse_pos+state.camera.position)- pos).normalize_or_zero();
+                create_bullet(state, pos, direction);
+            }
+
+
             for (crystal_id, (transform, sprite, _)) in &mut state.world.query::<(
                 &components::Transform,
                 &components::Sprite,
@@ -378,6 +406,28 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
 
     for crystal in crystals_to_delete.iter() {
         let _ = state.world.despawn(*crystal);
+    }
+
+    // Bullets killing
+    let mut bullets_ids_to_kill = vec![];
+    let mut enemies_ids_to_kill = vec![];
+    for (bullet_id, (transform, sprite, _ )) in &mut state.world.query::<(&components::Transform, &components::Sprite, &components::Bullet)>(){
+        let bullet_rect = sdl2::rect::Rect::new(transform.position.x as i32, transform.position.y as i32, sprite.size.x, sprite.size.y);
+        for (enemy_id, (enemy_transform, enemy_sprite, _)) in &mut state.world.query::<(&components::Transform, &components::Sprite, &components::GhostAI)>(){
+            let enemy_rect = sdl2::rect::Rect::new(enemy_transform.position.x as i32, enemy_transform.position.y as i32, enemy_sprite.size.x, enemy_sprite.size.y);
+            if bullet_rect.has_intersection(enemy_rect){
+                bullets_ids_to_kill.push(bullet_id);
+                enemies_ids_to_kill.push(enemy_id);
+                break;
+            }
+        }
+    }
+    for bullet in bullets_ids_to_kill.iter() {
+        let _ = state.world.despawn(*bullet);
+    }
+
+    for enemy in enemies_ids_to_kill.iter() {
+        let _ = state.world.despawn(*enemy);
     }
 
     // camera follow
