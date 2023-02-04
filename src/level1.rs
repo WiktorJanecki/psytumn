@@ -7,13 +7,13 @@ use sdl2_animation::{Animation, Keyframe};
 
 use crate::{
     components,
-    input::{InputState, self},
+    input::InputState,
     render::{Camera, Tile, Tilemap},
     texturemanager::TextureManager,
     Level,
 };
 
-pub struct Level1State {
+pub struct Level1State<'a> {
     update_started: bool,
     texture_creator: TextureCreator<WindowContext>,
     texture_manager: TextureManager,
@@ -23,10 +23,20 @@ pub struct Level1State {
     points: u32,
     enemy_spawner_timer: f32,
     attack_timer: f32,
+    music: sdl2::mixer::Music<'a>,
+    sound_dash: sdl2::mixer::Chunk,
+    sound_shoot: sdl2::mixer::Chunk,
+    sound_crystal:sdl2::mixer::Chunk,
+
 }
 
-impl Level1State {
+impl <'a> Level1State <'a> {
     pub fn new(canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) -> Self {
+        let music = sdl2::mixer::Music::from_file("res/music.wav").unwrap();
+        let sound_dash = sdl2::mixer::Chunk::from_file("res/dash.wav").unwrap();
+        let mut sound_shoot = sdl2::mixer::Chunk::from_file("res/shoot.wav").unwrap();
+        sound_shoot.set_volume(50);
+        let sound_crystal = sdl2::mixer::Chunk::from_file("res/crystal.wav").unwrap();
         Self {
             update_started: false,
             texture_creator: canvas.texture_creator(),
@@ -37,6 +47,10 @@ impl Level1State {
             points: 0,
             enemy_spawner_timer: 0.0,
             attack_timer: 0.0,
+            music,
+            sound_dash,
+            sound_shoot,
+            sound_crystal,
         }
     }
 }
@@ -166,7 +180,7 @@ fn create_enemy_on(state: &mut Level1State, x: i32, y: i32){
 }
 
 fn create_bullet(state: &mut Level1State, position: Vec2, direction: Vec2){
-    let speed = 64.0 * 20.0;
+    let speed = 64.0 * 15.0;
     state.world.spawn((
         components::Transform::with_position(position.x, position.y),
         components::Sprite {
@@ -181,6 +195,11 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
     let mut rng = rand::thread_rng();
     if !state.update_started {
         state.update_started = true;
+
+        let _ = state.music.play(-1);
+        sdl2::mixer::Music::set_volume(10);
+
+
         let idle_animation_player: Animation = vec![
             Keyframe {
                 x: 0,
@@ -280,6 +299,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
         let dash_cooldown = 0.5;
         let mut is_dashing = controller.dashing_time_left > 0.0;
         if !is_dashing && controller.dashing_timer <= 0.0 && input_state.dash && input_state.movement != Vec2::ZERO{
+            let _ = sdl2::mixer::Channel::all().play(&state.sound_dash, 0);
             is_dashing = true;
             controller.dashing_time_left = dash_time;
             controller.dashing_timer = dash_cooldown;
@@ -336,6 +356,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
                 let attack_cooldown = 1.0;
                 state.attack_timer = attack_cooldown;
                 let direction = ((input_state.mouse_pos+state.camera.position)- pos).normalize_or_zero();
+                let _ = sdl2::mixer::Channel::all().play(&state.sound_shoot, 0);
                 create_bullet(state, pos, direction);
             }
 
@@ -357,7 +378,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
                     should_regenerate_dash = true;
                 }
             }
-        
+            
         if should_regenerate_dash {
             for (_id, controller) in state.world.query_mut::<&mut components::PlayerController>() {
                 controller.dashing_timer = -0.1;
@@ -382,6 +403,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
                 ),
             ) {
                 crystals_to_delete.push(crystal_id);
+                let _ = sdl2::mixer::Channel::all().play(&state.sound_crystal, 0);
                 state.points += 1;
             }
         }
