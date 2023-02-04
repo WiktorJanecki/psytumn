@@ -21,6 +21,7 @@ pub struct Level1State {
     camera: Camera,
     tilemap: Tilemap,
     points: u32,
+    enemy_spawner_timer: f32,
 }
 
 impl Level1State {
@@ -33,6 +34,7 @@ impl Level1State {
             camera: Camera::new(),
             tilemap: Tilemap::new(50, 50, 32, 32),
             points: 0,
+            enemy_spawner_timer: 0.0,
         }
     }
 }
@@ -131,7 +133,38 @@ fn create_point_crystal_on(state: &mut Level1State, x: i32, y: i32) {
     ));
 }
 
+fn create_enemy_on(state: &mut Level1State, x: i32, y: i32){
+    let idle_animation_snake: Animation = vec![
+        Keyframe {
+            x: 0,
+            y: 0,
+            width: 32,
+            height: 32,
+            duration: std::time::Duration::from_secs_f32(0.5),
+        },
+        Keyframe {
+            x: 32,
+            y: 0,
+            width: 32,
+            height: 32,
+            duration: std::time::Duration::from_secs_f32(0.5),
+        },
+    ];
+    let mut enemy_animation_state = components::Animation::default();
+    enemy_animation_state.state.play(&idle_animation_snake);
+    state.world.spawn((
+        components::Transform::with_position(x as f32, y as f32),
+        components::Sprite {
+            filename: "res/snake.png",
+            size: UVec2::new(40, 40),
+        },
+        components::GhostAI::default(),
+        enemy_animation_state,
+    ));
+}
+
 pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level: &mut Level) {
+    let mut rng = rand::thread_rng();
     if !state.update_started {
         state.update_started = true;
         let idle_animation_player: Animation = vec![
@@ -150,26 +183,8 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
                 duration: std::time::Duration::from_secs(1),
             },
         ];
-        let idle_animation_snake: Animation = vec![
-            Keyframe {
-                x: 0,
-                y: 0,
-                width: 32,
-                height: 32,
-                duration: std::time::Duration::from_secs_f32(0.5),
-            },
-            Keyframe {
-                x: 32,
-                y: 0,
-                width: 32,
-                height: 32,
-                duration: std::time::Duration::from_secs_f32(0.5),
-            },
-        ];
         let mut player_animation_state = components::Animation::default();
-        let mut enemy_animation_state = components::Animation::default();
         player_animation_state.state.play(&idle_animation_player);
-        enemy_animation_state.state.play(&idle_animation_snake);
         let _player = state.world.spawn((
             components::Player,
             components::Transform::default(),
@@ -181,17 +196,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
             components::PlayerController::default(),
             player_animation_state,
         ));
-        let _enemy = state.world.spawn((
-            components::Transform::with_position(640.0, 64.0),
-            components::Sprite {
-                filename: "res/snake.png",
-                size: UVec2::new(40, 40),
-            },
-            components::GhostAI::default(),
-            enemy_animation_state,
-        ));
         // perlin generate water
-        let mut rng = rand::thread_rng();
         let mut noise = FastNoise::seeded(rng.gen());
         noise.set_noise_type(NoiseType::Perlin);
         noise.set_frequency(0.09);
@@ -228,6 +233,13 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
     }
     // Update
 
+    state.enemy_spawner_timer -= dt;
+    if state.enemy_spawner_timer <= 0.0{
+        let enemy_spawn_cooldown = 1.0;
+        state.enemy_spawner_timer = enemy_spawn_cooldown;
+        create_enemy_on(state,rng.gen_range(-1600..1600),rng.gen_range(-1600..1600));
+    }
+
     for (_id, (transform, controller)) in state.world.query_mut::<(
         &mut components::Transform,
         &mut components::PlayerController,
@@ -248,7 +260,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
         let dash_time = 0.2;
         let dash_cooldown = 0.5;
         let mut is_dashing = controller.dashing_time_left > 0.0;
-        if !is_dashing && controller.dashing_timer <= 0.0 && input_state.dash {
+        if !is_dashing && controller.dashing_timer <= 0.0 && input_state.dash && input_state.movement != Vec2::ZERO{
             is_dashing = true;
             controller.dashing_time_left = dash_time;
             controller.dashing_timer = dash_cooldown;
@@ -298,35 +310,34 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
     let mut crystals_to_delete = vec![];
     let mut should_regenerate_dash = false;
     if target_pos.is_some() && target_size.is_some() {
-        let pos = target_pos.unwrap();
-        let size = target_size.unwrap();
-        for (crystal_id, (transform, sprite, _)) in &mut state.world.query::<(
-            &components::Transform,
-            &components::Sprite,
-            &components::DashingCrystal,
-        )>() {
-            if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(
-                sdl2::rect::Rect::new(
-                    transform.position.x as i32,
-                    transform.position.y as i32,
-                    sprite.size.x,
-                    sprite.size.y,
-                ),
-            ) {
-                crystals_to_delete.push(crystal_id);
-                should_regenerate_dash = true;
+            let pos = target_pos.unwrap();
+            let size = target_size.unwrap();
+            for (crystal_id, (transform, sprite, _)) in &mut state.world.query::<(
+                &components::Transform,
+                &components::Sprite,
+                &components::DashingCrystal,
+            )>() {
+                if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(
+                    sdl2::rect::Rect::new(
+                        transform.position.x as i32,
+                        transform.position.y as i32,
+                        sprite.size.x,
+                        sprite.size.y,
+                    ),
+                ) {
+                    crystals_to_delete.push(crystal_id);
+                    should_regenerate_dash = true;
+                }
+            }
+        
+        if should_regenerate_dash {
+            for (_id, controller) in state.world.query_mut::<&mut components::PlayerController>() {
+                controller.dashing_timer = -0.1;
+                controller.velocity = Vec2::ZERO;
+                controller.can_move = false;
             }
         }
-    }
-    if should_regenerate_dash {
-        for (_id, controller) in state.world.query_mut::<&mut components::PlayerController>() {
-            controller.dashing_timer = -0.1;
-            controller.velocity = Vec2::ZERO;
-            controller.can_move = false;
-        }
-    }
-    // Point crystal
-    if target_pos.is_some() && target_size.is_some() {
+        // Point crystal
         let pos = target_pos.unwrap();
         let size = target_size.unwrap();
         for (crystal_id, (transform, sprite, _)) in &mut state.world.query::<(
@@ -346,6 +357,19 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
                 state.points += 1;
             }
         }
+        for (_id, (transform, sprite, _)) in &mut state.world.query::<(&components::Transform, &components::Sprite, &components::GhostAI)>(){
+            if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(
+                sdl2::rect::Rect::new(
+                    transform.position.x as i32,
+                    transform.position.y as i32,
+                    sprite.size.x,
+                    sprite.size.y,
+                ),
+            ) {
+                panic!("GAME OVER");
+            }
+        }
+    
     }
 
     if state.points >= 3 {
