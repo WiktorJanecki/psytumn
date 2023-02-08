@@ -535,6 +535,11 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
                             state.tilemap.tile_width * scale,
                             state.tilemap.tile_height * scale,
                         );
+                        // render only if dst is in screen bounds + offset
+                        let offset = 100;
+                        if !dst.has_intersection(sdl2::rect::Rect::new(-offset,-offset, 1280 + offset as u32, 720 + offset as u32)){
+                            return;
+                        }
                         let _ = canvas.copy(texture, None, dst);
                     }
                 })
@@ -550,6 +555,11 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
             sprite.size.x * scale,
             sprite.size.y * scale,
         );
+        // render only if dst is in screen bounds + offset
+        let offset = 100;
+        if !dst.has_intersection(sdl2::rect::Rect::new(-offset,-offset, 1280 + offset as u32, 720 + offset as u32)){
+            continue
+        }
         let src = state
             .world
             .entity(id)
