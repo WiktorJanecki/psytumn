@@ -14,3 +14,8 @@ sdl2_animation = {path = "../sdl2_animation"}
 time = "0.3.17"
 rand = "0.8.5"
 bracket-noise = "0.8.7"
+puffin = "0.14.2"
+puffin_http = { version = "0.11.1", optional = true}
+
+[features]
+puffin = ["puffin_http"]

@@ -193,6 +193,7 @@ fn create_bullet(state: &mut Level1State, position: Vec2, direction: Vec2) {
 }
 
 pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level: &mut Level) {
+    puffin::profile_scope!("update");
     let mut rng = rand::thread_rng();
     if !state.update_started {
         state.update_started = true;
@@ -507,6 +508,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
 }
 
 pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
+    puffin::profile_scope!("render");
     canvas.set_draw_color(sdl2::pixels::Color::RGB(39, 9, 31));
     canvas.clear();
     let scale = 2;

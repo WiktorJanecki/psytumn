@@ -15,6 +15,10 @@ pub enum Level {
 
 fn main() {
     const VERSION: u32 = 1;
+    #[cfg(feature = "puffin")]
+    let _puffin_server = puffin_http::Server::new(&"0.0.0.0:8585").unwrap();
+    #[cfg(feature = "puffin")]
+    puffin::set_scopes_on(true);
 
     println!("Welcome in console linux user/developer :)");
 
@@ -52,6 +56,8 @@ fn main() {
     let mut level1_state = Level1State::new(&mut canvas);
 
     loop {
+        puffin::GlobalProfiler::lock().new_frame();
+        puffin::profile_scope!("main_loop");
         input_state.handle_events(&mut event_pump);
         if input_state.quit {
             break;
