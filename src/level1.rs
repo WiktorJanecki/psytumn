@@ -53,7 +53,6 @@ impl<'a> Level1State<'a> {
         }
     }
 }
-
 pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level: &mut Level) {
     puffin::profile_scope!("update");
     let mut rng = rand::thread_rng();
@@ -159,11 +158,11 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
         target_pos = Some(transform.position);
         target_size = Some(sprite.size);
     }
-    let mut crystals_to_delete = vec![];
-    let mut should_regenerate_dash = false;
     if target_pos.is_some() && target_size.is_some() {
         let pos = target_pos.unwrap();
         let size = target_size.unwrap();
+
+        // player bullet spawn
 
         if input_state.attack && state.attack_timer <= 0.0 {
             let attack_cooldown = 1.0;
@@ -172,54 +171,6 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
                 ((input_state.mouse_pos + state.camera.position) - pos).normalize_or_zero();
             let _ = sdl2::mixer::Channel::all().play(&state.sound_shoot, 0);
             create_bullet(state, pos, direction);
-        }
-
-        // Dash crystal
-        for (crystal_id, (transform, sprite, _)) in &mut state.world.query::<(
-            &components::Transform,
-            &components::Sprite,
-            &components::DashingCrystal,
-        )>() {
-            if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(
-                sdl2::rect::Rect::new(
-                    transform.position.x as i32,
-                    transform.position.y as i32,
-                    sprite.size.x,
-                    sprite.size.y,
-                ),
-            ) {
-                crystals_to_delete.push(crystal_id);
-                should_regenerate_dash = true;
-            }
-        }
-
-        if should_regenerate_dash {
-            for (_id, controller) in state.world.query_mut::<&mut components::PlayerController>() {
-                controller.dashing_timer = -0.1;
-                controller.velocity = Vec2::ZERO;
-                controller.can_move = false;
-            }
-        }
-        // Point crystal
-        let pos = target_pos.unwrap();
-        let size = target_size.unwrap();
-        for (crystal_id, (transform, sprite, _)) in &mut state.world.query::<(
-            &components::Transform,
-            &components::Sprite,
-            &components::PointCrystal,
-        )>() {
-            if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(
-                sdl2::rect::Rect::new(
-                    transform.position.x as i32,
-                    transform.position.y as i32,
-                    sprite.size.x,
-                    sprite.size.y,
-                ),
-            ) {
-                crystals_to_delete.push(crystal_id);
-                let _ = sdl2::mixer::Channel::all().play(&state.sound_crystal, 0);
-                state.points += 1;
-            }
         }
         // Player death
         for (_id, (transform, sprite, _)) in &mut state.world.query::<(
@@ -239,13 +190,10 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
             }
         }
     }
+    system_crystal(&mut state.world, &mut state.points, &state.sound_crystal);
 
     if state.points >= 3 {
         *level = Level::Intro;
-    }
-
-    for crystal in crystals_to_delete.iter() {
-        let _ = state.world.despawn(*crystal);
     }
 
     // Bullets position and killing
@@ -325,6 +273,71 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
         let _ = canvas.copy(texture, src, dst);
     }
     canvas.present();
+}
+
+fn system_crystal(world: &mut hecs::World, points: &mut u32, sound_crystal: &sdl2::mixer::Chunk){
+    let mut optional_player_position = None;
+    let mut optional_player_size = None;
+    for (_id, (transform, sprite, _)) in &mut world.query::<(
+        &components::Transform,
+        &components::Sprite,
+        &components::PlayerController,
+    )>() {
+        optional_player_position = Some(transform.position);
+        optional_player_size = Some(sprite.size);
+    }
+    let mut crystals_to_delete = vec![];
+    let mut should_regenerate_dash = false;
+    if let (Some(target_position), Some(target_size)) = (optional_player_position, optional_player_size){ // if target exist
+        // dash crystal
+        for (crystal_id, (transform, sprite, _)) in &mut world.query::<(
+            &components::Transform,
+            &components::Sprite,
+            &components::DashingCrystal,
+        )>() {
+            if sdl2::rect::Rect::new(target_position.x as i32, target_position.y as i32, target_size.x, target_size.y).has_intersection(
+                sdl2::rect::Rect::new(
+                    transform.position.x as i32,
+                    transform.position.y as i32,
+                    sprite.size.x,
+                    sprite.size.y,
+                ),
+            ) {
+                crystals_to_delete.push(crystal_id);
+                should_regenerate_dash = true;
+            }
+        }
+
+        if should_regenerate_dash {
+            for (_id, controller) in world.query_mut::<&mut components::PlayerController>() {
+                controller.dashing_timer = -0.1;
+                controller.velocity = Vec2::ZERO;
+                controller.can_move = false;
+            }
+        }
+        // Point crystal
+        for (crystal_id, (transform, sprite, _)) in &mut world.query::<(
+            &components::Transform,
+            &components::Sprite,
+            &components::PointCrystal,
+        )>() {
+            if sdl2::rect::Rect::new(target_position.x as i32, target_position.y as i32, target_size.x, target_size.y).has_intersection(
+                sdl2::rect::Rect::new(
+                    transform.position.x as i32,
+                    transform.position.y as i32,
+                    sprite.size.x,
+                    sprite.size.y,
+                ),
+            ) {
+                crystals_to_delete.push(crystal_id);
+                let _ = sdl2::mixer::Channel::all().play(sound_crystal, 0);
+                *points += 1;
+            }
+        }
+    }
+    for crystal in crystals_to_delete.iter() {
+        let _ = world.despawn(*crystal);
+    }
 }
 
 fn system_ghost_ai(world: &mut hecs::World, dt: f32) {
