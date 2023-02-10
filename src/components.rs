@@ -72,6 +72,7 @@ pub struct PlayerController {
     pub acceleration: Vec2,
     pub dashing_timer: f32,
     pub dashing_time_left: f32,
+    pub attack_timer: f32,
     pub can_move: bool,
 }
 
@@ -82,6 +83,7 @@ impl Default for PlayerController {
             acceleration: Vec2::ZERO,
             dashing_timer: 0.0,
             dashing_time_left: 0.0,
+            attack_timer: 0.0,
             can_move: true,
         }
     }

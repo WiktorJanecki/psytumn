@@ -22,7 +22,6 @@ pub struct Level1State<'a> {
     tilemap: Tilemap,
     points: u32,
     enemy_spawner_timer: f32,
-    attack_timer: f32,
     music: sdl2::mixer::Music<'a>,
     sound_dash: sdl2::mixer::Chunk,
     sound_shoot: sdl2::mixer::Chunk,
@@ -45,7 +44,6 @@ impl<'a> Level1State<'a> {
             tilemap: Tilemap::new(50, 50, 32, 32),
             points: 0,
             enemy_spawner_timer: 0.0,
-            attack_timer: 0.0,
             music,
             sound_dash,
             sound_shoot,
@@ -130,55 +128,40 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
 
     // Spawn enemies every second
     state.enemy_spawner_timer -= dt;
-    state.attack_timer -= dt;
     if state.enemy_spawner_timer <= 0.0 {
         let enemy_spawn_cooldown = 1.0;
         state.enemy_spawner_timer = enemy_spawn_cooldown;
         create_enemy_on(
-            state,
+            &mut state.world,
             rng.gen_range(-1600..1600),
             rng.gen_range(-1600..1600),
         );
     }
 
     // Player controller
-    system_player_controller(&mut state.world, &state.sound_dash, input_state, dt);
+    system_player_controller(&mut state.world, &state.sound_dash, &state.sound_shoot, &state.camera, input_state, dt);
 
     // ghost ai
     system_ghost_ai(&mut state.world, dt);
 
-    // crystal handling
-    let mut target_pos = None;
-    let mut target_size = None;
+    let mut optional_player_position = None;
+    let mut optional_player_size = None;
     for (_id, (transform, sprite, _)) in &mut state.world.query::<(
         &components::Transform,
         &components::Sprite,
         &components::PlayerController,
     )>() {
-        target_pos = Some(transform.position);
-        target_size = Some(sprite.size);
+        optional_player_position = Some(transform.position);
+        optional_player_size = Some(sprite.size);
     }
-    if target_pos.is_some() && target_size.is_some() {
-        let pos = target_pos.unwrap();
-        let size = target_size.unwrap();
-
-        // player bullet spawn
-
-        if input_state.attack && state.attack_timer <= 0.0 {
-            let attack_cooldown = 1.0;
-            state.attack_timer = attack_cooldown;
-            let direction =
-                ((input_state.mouse_pos + state.camera.position) - pos).normalize_or_zero();
-            let _ = sdl2::mixer::Channel::all().play(&state.sound_shoot, 0);
-            create_bullet(state, pos, direction);
-        }
+    if let (Some(target_position), Some(target_size)) = (optional_player_position, optional_player_size){ // if target exist
         // Player death
         for (_id, (transform, sprite, _)) in &mut state.world.query::<(
             &components::Transform,
             &components::Sprite,
             &components::GhostAI,
         )>() {
-            if sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y).has_intersection(
+            if sdl2::rect::Rect::new(target_position.x as i32, target_position.y as i32, target_size.x, target_size.y).has_intersection(
                 sdl2::rect::Rect::new(
                     transform.position.x as i32,
                     transform.position.y as i32,
@@ -427,10 +410,11 @@ fn system_camera_follow(world: &hecs::World, camera: &mut Camera, dt: f32){
     }
 }
 
-fn system_player_controller(world: &mut hecs::World, sound_dash: &sdl2::mixer::Chunk, input_state: &InputState, dt: f32) {
+fn system_player_controller(world: &mut hecs::World, sound_dash: &sdl2::mixer::Chunk, sound_shoot: &sdl2::mixer::Chunk, camera: &Camera, input_state: &InputState, dt: f32) {
+    let mut bullets_to_create = vec![];
     for (_id, (transform, controller)) in world.query_mut::<(
         &mut components::Transform,
-        &mut components::PlayerController,
+        &mut components::PlayerController
     )>() {
         let friction = 50.0 * 64.0;
         let max_vel = 12.0 * 64.0; // GREAT VALUES 64 is one tile
@@ -445,6 +429,7 @@ fn system_player_controller(world: &mut hecs::World, sound_dash: &sdl2::mixer::C
         controller.velocity = controller.velocity.clamp_length_max(max_vel); // clamp velocity
         controller.dashing_time_left -= dt;
         controller.dashing_timer -= dt;
+        controller.attack_timer -= dt;
         let dash_time = 0.2;
         let dash_cooldown = 0.5;
         let mut is_dashing = controller.dashing_time_left > 0.0;
@@ -466,7 +451,21 @@ fn system_player_controller(world: &mut hecs::World, sound_dash: &sdl2::mixer::C
 
             transform.position += controller.velocity * dt; // apply velocity
         }
+
+        if input_state.attack && controller.attack_timer <= 0.0 {
+            let attack_cooldown = 1.0;
+            controller.attack_timer = attack_cooldown;
+            let direction =
+                ((input_state.mouse_pos + camera.position) - transform.position).normalize_or_zero();
+            let _ = sdl2::mixer::Channel::all().play(sound_shoot, 0);
+            bullets_to_create.push((transform.position, direction));
+        }
+
     }
+    for (pos, dir) in bullets_to_create{
+        create_bullet(world, pos, dir);
+    }
+
 }
 
 fn create_dash_crystal_on(state: &mut Level1State, x: i32, y: i32) {
@@ -563,7 +562,7 @@ fn create_point_crystal_on(state: &mut Level1State, x: i32, y: i32) {
     ));
 }
 
-fn create_enemy_on(state: &mut Level1State, x: i32, y: i32) {
+fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32) {
     let idle_animation_snake: Animation = vec![
         Keyframe {
             x: 0,
@@ -582,7 +581,7 @@ fn create_enemy_on(state: &mut Level1State, x: i32, y: i32) {
     ];
     let mut enemy_animation_state = components::Animation::default();
     enemy_animation_state.state.play(&idle_animation_snake);
-    state.world.spawn((
+    world.spawn((
         components::Transform::with_position(x as f32, y as f32),
         components::Sprite {
             filename: "res/snake.png",
@@ -593,9 +592,9 @@ fn create_enemy_on(state: &mut Level1State, x: i32, y: i32) {
     ));
 }
 
-fn create_bullet(state: &mut Level1State, position: Vec2, direction: Vec2) {
+fn create_bullet(world: &mut hecs::World, position: Vec2, direction: Vec2) {
     let speed = 64.0 * 15.0;
-    state.world.spawn((
+    world.spawn((
         components::Transform::with_position(position.x, position.y),
         components::Sprite {
             filename: "res/bullet.png",
