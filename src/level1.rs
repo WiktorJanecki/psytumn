@@ -137,56 +137,15 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
             rng.gen_range(-1600..1600),
         );
     }
-
-    // Player controller
     system_player_controller(&mut state.world, &state.sound_dash, &state.sound_shoot, &state.camera, input_state, dt);
-
-    // ghost ai
     system_ghost_ai(&mut state.world, dt);
-
-    let mut optional_player_position = None;
-    let mut optional_player_size = None;
-    for (_id, (transform, sprite, _)) in &mut state.world.query::<(
-        &components::Transform,
-        &components::Sprite,
-        &components::PlayerController,
-    )>() {
-        optional_player_position = Some(transform.position);
-        optional_player_size = Some(sprite.size);
-    }
-    if let (Some(target_position), Some(target_size)) = (optional_player_position, optional_player_size){ // if target exist
-        // Player death
-        for (_id, (transform, sprite, _)) in &mut state.world.query::<(
-            &components::Transform,
-            &components::Sprite,
-            &components::GhostAI,
-        )>() {
-            if sdl2::rect::Rect::new(target_position.x as i32, target_position.y as i32, target_size.x, target_size.y).has_intersection(
-                sdl2::rect::Rect::new(
-                    transform.position.x as i32,
-                    transform.position.y as i32,
-                    sprite.size.x,
-                    sprite.size.y,
-                ),
-            ) {
-                panic!("GAME OVER");
-            }
-        }
-    }
     system_crystal(&mut state.world, &mut state.points, &state.sound_crystal);
-
+    system_bullets(&mut state.world, dt);
+    system_camera_follow(&state.world, &mut state.camera, dt);
+    system_animation(&mut state.world, dt);
     if state.points >= 3 {
         *level = Level::Intro;
     }
-
-    // Bullets position and killing
-    system_bullets(&mut state.world, dt);
-
-    // camera follow
-    system_camera_follow(&state.world, &mut state.camera, dt);
-
-    // animation system
-    system_animation(&mut state.world, dt);
 }
 
 pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
@@ -324,20 +283,39 @@ fn system_crystal(world: &mut hecs::World, points: &mut u32, sound_crystal: &sdl
 }
 
 fn system_ghost_ai(world: &mut hecs::World, dt: f32) {
-    let mut optional_target_transform = None;
-    {
-        let mut query = world.query::<With<&components::Transform, &components::Player>>();
-        let optional_player = query.iter().last();
-        if let Some((_, transform)) = optional_player { // if target exist
-            optional_target_transform = Some(transform.clone());
-        }
+    let mut optional_player_position = None;
+    let mut optional_player_size = None;
+    for (_id, (transform, sprite, _)) in &mut world.query::<(
+        &components::Transform,
+        &components::Sprite,
+        &components::Player,
+    )>() {
+        optional_player_position = Some(transform.position);
+        optional_player_size = Some(sprite.size);
     }
-    if let Some(target_transform) = optional_target_transform{
+    if let (Some(target_pos), Some(target_size)) = (optional_player_position, optional_player_size){
+        // ghost move
         for (_id, (transform, ghost_ai)) in world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>(){
-            let difference = target_transform.position - transform.position;
+            let difference = target_pos - transform.position;
             if difference.length() <= ghost_ai.radius {
                 ghost_ai.velocity = difference.normalize() * ghost_ai.speed;
                 transform.position += dt * ghost_ai.velocity;
+            }
+        }
+        // Player death
+        for (_id, (transform, sprite, _)) in &mut world.query::<(
+            &components::Transform,
+            &components::Sprite,
+            &components::GhostAI,
+        )>() {
+            if sdl2::rect::Rect::new(target_pos.x as i32, target_pos.y as i32, target_size.x, target_size.y).has_intersection(
+                sdl2::rect::Rect::new(
+                    transform.position.x as i32,
+                    transform.position.y as i32,
+                    sprite.size.x,
+                    sprite.size.y,
+                )) {
+                panic!("GAME OVER");
             }
         }
     }
