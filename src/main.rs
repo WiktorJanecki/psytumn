@@ -2,6 +2,7 @@ use crate::{input::InputState, level1::Level1State};
 
 mod components;
 mod input;
+mod player_state;
 mod render;
 mod texturemanager;
 

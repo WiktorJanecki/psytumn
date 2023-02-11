@@ -1,7 +1,7 @@
 use glam::{UVec2, Vec2};
 use sdl2_animation::AnimationState;
 
-use crate::level1::player_state;
+use crate::player_state;
 
 #[derive(Clone)]
 pub struct Transform {
