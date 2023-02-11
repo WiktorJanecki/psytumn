@@ -48,7 +48,7 @@ impl Tilemap {
             tilemap_width: width * tile_width,
         }
     }
-    pub fn _get(self: &Self, x: usize, y: usize) -> Option<&Tile> {
+    pub fn get(self: &Self, x: usize, y: usize) -> Option<&Tile> {
         return self.values.get(x).unwrap().get(y).unwrap().as_ref();
     }
 

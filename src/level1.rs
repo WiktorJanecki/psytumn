@@ -128,13 +128,70 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
                 rng.gen_range(-1600..1600),
             );
         }
-        for _ in 0..3 {
-            create_point_crystal_on(
-                state,
-                rng.gen_range(-1600..1600),
-                rng.gen_range(-1600..1600),
-            );
+        { // GENERATE CRYSTALS IN CORNERS
+        let map_size_x = 49;
+        let map_size_y = 49;
+        let mut max_x = 5;
+        let mut max_y = 5;
+        loop{
+            let try_x = rng.gen_range(0..=max_x);
+            let try_y = rng.gen_range(0..=max_y);
+            if let Some(Tile { filename }) = state.tilemap.get(try_x, try_y){
+                if filename == &"res/path.png"{
+                    create_point_crystal_on(
+                        state,
+                        try_x as i32 * state.tilemap.tile_width as i32 * 2 + state.tilemap.position().x,
+                        try_y as i32 * state.tilemap.tile_height as i32 * 2+ state.tilemap.position().y,
+                    );
+                    break;
+                }
+            }
+            max_x+=1;
+            max_x = max_x.clamp(0,map_size_x);
+            max_y+=1;
+            max_y = max_y.clamp(0,map_size_y);
         }
+        let mut max_x = 5;
+        let mut max_y = 5;
+        loop{
+            let try_x = rng.gen_range(0..=max_x);
+            let try_y = rng.gen_range(0..=max_y);
+            if let Some(Tile { filename }) = state.tilemap.get(map_size_x - try_x, try_y){
+                if filename == &"res/path.png"{
+                    create_point_crystal_on(
+                        state,
+                        (map_size_x - try_x) as i32 * state.tilemap.tile_width as i32 * 2 + state.tilemap.position().x,
+                        try_y as i32 * state.tilemap.tile_height as i32 * 2+ state.tilemap.position().y,
+                    );
+                    break;
+                }
+            }
+            max_x+=1;
+            max_x = max_x.clamp(0,map_size_x);
+            max_y+=1;
+            max_y = max_y.clamp(0,map_size_y);
+        }
+        let mut max_x = 5;
+        let mut max_y = 5;
+        loop{
+            let try_x = rng.gen_range(0..=max_x);
+            let try_y = rng.gen_range(0..=max_y);
+            if let Some(Tile { filename }) = state.tilemap.get(map_size_x - try_x, map_size_y - try_y){
+                if filename == &"res/path.png"{
+                    create_point_crystal_on(
+                        state,
+                        (map_size_x - try_x) as i32 * state.tilemap.tile_width as i32 * 2 + state.tilemap.position().x,
+                        (map_size_y - try_y) as i32 * state.tilemap.tile_height as i32 * 2+ state.tilemap.position().y,
+                    );
+                    break;
+                }
+            }
+            max_x+=1;
+            max_x = max_x.clamp(0,map_size_x);
+            max_y+=1;
+            max_y = max_y.clamp(0,map_size_y);
+        }
+    }
     }
     // Update
     // Reset player input state
