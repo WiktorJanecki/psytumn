@@ -54,7 +54,7 @@ impl<'a> Level1State<'a> {
         }
     }
 }
-pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level: &mut Level) {
+pub fn update(state: &mut Level1State,canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, dt: f32, input_state: &InputState, level: &mut Level) {
     puffin::profile_scope!("update");
     let mut rng = rand::thread_rng();
     if !state.update_started {
@@ -216,7 +216,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
         input_state,
         dt,
     );
-    system_ghost_ai(&mut state.world, dt);
+    system_ghost_ai(state, canvas, level, dt);
     system_crystal(
         &mut state.world,
         &mut state.player_state_input,
@@ -395,10 +395,11 @@ fn system_crystal(
     }
 }
 
-fn system_ghost_ai(world: &mut hecs::World, dt: f32) {
+fn system_ghost_ai(state: &mut Level1State,canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, level: &mut Level, dt: f32) {
     let mut optional_player_position = None;
     let mut optional_player_size = None;
-    for (_id, (transform, sprite, _)) in &mut world.query::<(
+    let mut should_die = false;
+    for (_id, (transform, sprite, _)) in &mut state.world.query::<(
         &components::Transform,
         &components::Sprite,
         &components::Player,
@@ -410,7 +411,7 @@ fn system_ghost_ai(world: &mut hecs::World, dt: f32) {
     {
         // ghost move
         for (_id, (transform, ghost_ai)) in
-            world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>()
+            state.world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>()
         {
             let difference = target_pos - transform.position;
             if difference.length() <= ghost_ai.radius {
@@ -419,7 +420,7 @@ fn system_ghost_ai(world: &mut hecs::World, dt: f32) {
             }
         }
         // Player death
-        for (_id, (transform, sprite, _)) in &mut world.query::<(
+        for (_id, (transform, sprite, _)) in &mut state.world.query::<(
             &components::Transform,
             &components::Sprite,
             &components::GhostAI,
@@ -436,9 +437,14 @@ fn system_ghost_ai(world: &mut hecs::World, dt: f32) {
                 sprite.size.x,
                 sprite.size.y,
             )) {
-                panic!("GAME OVER");
+                should_die = true;
+                break;
             }
         }
+    }
+    if should_die{
+        *state = Level1State::new(canvas);
+        *level = Level::Menu;
     }
 }
 

@@ -1,21 +1,23 @@
-use crate::{input::InputState, level1::Level1State};
+use crate::{input::InputState, level1::Level1State, menu::MenuState};
 
 mod components;
 mod input;
 mod player_state;
 mod render;
 mod texturemanager;
+mod systems;
 
+mod menu;
 mod level1;
 
 pub enum Level {
     Intro,
-    _Menu,
+    Menu,
     Level1,
 }
 
 fn main() {
-    const VERSION: u32 = 1;
+    const VERSION: u32 = 2;
     #[cfg(feature = "puffin")]
     let _puffin_server = puffin_http::Server::new(&"0.0.0.0:8585").unwrap();
     #[cfg(feature = "puffin")]
@@ -53,8 +55,9 @@ fn main() {
     let mut fps_counter = 0;
     let mut fps = 0;
 
-    let mut level = Level::Level1;
+    let mut level = Level::Menu;
     let mut level1_state = Level1State::new(&mut canvas);
+    let mut menu_state = MenuState::new(&mut canvas);
 
     loop {
         puffin::GlobalProfiler::lock().new_frame();
@@ -89,9 +92,12 @@ fn main() {
                 level = Level::Level1;
                 canvas.present();
             }
-            Level::_Menu => todo!(),
+            Level::Menu => {
+                menu::update(&mut menu_state, dt, &mut input_state, &mut level);
+                menu::render(&mut menu_state, &mut canvas);
+            },
             Level::Level1 => {
-                level1::update(&mut level1_state, dt, &input_state, &mut level);
+                level1::update(&mut level1_state, &mut canvas, dt, &input_state, &mut level);
                 level1::render(&mut level1_state, &mut canvas);
             }
         }
