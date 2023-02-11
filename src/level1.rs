@@ -95,18 +95,27 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
         // perlin generate water
         let mut noise = FastNoise::seeded(rng.gen());
         noise.set_noise_type(NoiseType::Perlin);
-        noise.set_frequency(0.09);
+        noise.set_frequency(0.05);
         let max_x = state.tilemap.values.len();
         let max_y = state.tilemap.values.get(0).unwrap().len();
         for x in 0..max_x {
             for y in 0..max_y {
                 let value = noise.get_noise(x.clone() as f32, y.clone() as f32);
-                if value > 0.2 {
+                if value.abs() < 0.07 {
                     state.tilemap.set(
                         x,
                         y,
                         Some(Tile {
-                            filename: "res/water.png",
+                            filename: "res/path.png",
+                        }),
+                    );
+                }
+                if value.abs() > 0.3{
+                    state.tilemap.set(
+                        x,
+                        y,
+                        Some(Tile {
+                            filename: "res/grass.png",
                         }),
                     );
                 }
@@ -468,6 +477,9 @@ fn system_player_controller(
             // apply friction
         }
         controller.velocity = controller.velocity.clamp_length_max(max_vel); // clamp velocity
+        if controller.velocity.length() < 5.0{
+            controller.velocity = Vec2::ZERO;
+        }
         controller.dashing_time_left -= dt;
         controller.dashing_timer -= dt;
         controller.attack_timer -= dt;
