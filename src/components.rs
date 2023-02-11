@@ -1,6 +1,8 @@
 use glam::{UVec2, Vec2};
 use sdl2_animation::AnimationState;
 
+use crate::level1::player_state;
+
 #[derive(Clone)]
 pub struct Transform {
     pub position: Vec2,
@@ -49,7 +51,22 @@ pub struct Bullet {
     pub velocity: Vec2,
 }
 
-pub struct Player;
+pub struct Player {
+    pub state_machine: player_state::StateMachine,
+}
+
+impl Default for Player {
+    fn default() -> Self {
+        Self {
+            state_machine: player_state::StateMachine {
+                state: player_state::State::Idle,
+                dashing_time_left: 0.0,
+                dashing_cooldown_timer: 0.0,
+            },
+        }
+    }
+}
+
 pub struct CameraTarget;
 
 pub struct GhostAI {

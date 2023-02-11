@@ -13,6 +13,85 @@ use crate::{
     Level,
 };
 
+pub mod player_state {
+    pub struct StateMachine {
+        pub state: State,
+        pub dashing_time_left: f32,
+        pub dashing_cooldown_timer: f32,
+    }
+    pub enum Input {
+        Move,
+        Dash,
+        Nothing,
+        Crystal,
+    }
+
+    pub enum State {
+        Idle,
+        Moving,
+        Dashing,
+        Stopped,
+    }
+
+    pub fn handle_state(
+        state_machine: &mut StateMachine,
+        input: &Input,
+        sound_dash: &sdl2::mixer::Chunk,
+        dt: f32,
+    ) {
+        let dashing_cooldown = 0.5;
+        let dashing_time = 0.2;
+        state_machine.dashing_cooldown_timer -= dt;
+        state_machine.dashing_time_left -= dt;
+        match state_machine.state {
+            State::Idle => match input {
+                Input::Move => state_machine.state = State::Moving,
+                _ => {}
+            },
+            State::Moving => match input {
+                Input::Dash => {
+                    if state_machine.dashing_cooldown_timer <= 0.0 {
+                        state_machine.state = State::Dashing;
+                        let _ = sdl2::mixer::Channel::all().play(sound_dash, 0);
+                        state_machine.dashing_cooldown_timer = dashing_cooldown;
+                        state_machine.dashing_time_left = dashing_time;
+                    }
+                }
+                Input::Nothing => {
+                    state_machine.state = State::Idle;
+                }
+                Input::Crystal => {
+                    state_machine.state = State::Stopped;
+                    state_machine.dashing_cooldown_timer = 0.0;
+                }
+                _ => {}
+            },
+            State::Dashing => match input {
+                Input::Crystal => {
+                    state_machine.state = State::Stopped;
+                    state_machine.dashing_cooldown_timer = 0.0;
+                }
+                _ => {
+                    if state_machine.dashing_time_left <= 0.0 {
+                        state_machine.state = State::Idle;
+                    }
+                }
+            },
+            State::Stopped => match input {
+                Input::Dash => {
+                    if state_machine.dashing_cooldown_timer <= 0.0 {
+                        state_machine.state = State::Dashing;
+                        let _ = sdl2::mixer::Channel::all().play(sound_dash, 0);
+                        state_machine.dashing_cooldown_timer = dashing_cooldown;
+                        state_machine.dashing_time_left = dashing_time;
+                    }
+                }
+                _ => {}
+            },
+        }
+    }
+}
+
 pub struct Level1State<'a> {
     update_started: bool,
     texture_creator: TextureCreator<WindowContext>,
@@ -21,6 +100,7 @@ pub struct Level1State<'a> {
     camera: Camera,
     tilemap: Tilemap,
     points: u32,
+    player_state_input: player_state::Input,
     enemy_spawner_timer: f32,
     music: sdl2::mixer::Music<'a>,
     sound_dash: sdl2::mixer::Chunk,
@@ -48,6 +128,7 @@ impl<'a> Level1State<'a> {
             sound_dash,
             sound_shoot,
             sound_crystal,
+            player_state_input: player_state::Input::Nothing,
         }
     }
 }
@@ -79,7 +160,7 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
         let mut player_animation_state = components::Animation::default();
         player_animation_state.state.play(&idle_animation_player);
         let _player = state.world.spawn((
-            components::Player,
+            components::Player::default(),
             components::Transform::default(),
             components::Sprite {
                 filename: "res/player.png",
@@ -125,6 +206,8 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
         }
     }
     // Update
+    // Reset player input state
+    state.player_state_input = player_state::Input::Nothing;
 
     // Spawn enemies every second
     state.enemy_spawner_timer -= dt;
@@ -137,14 +220,34 @@ pub fn update(state: &mut Level1State, dt: f32, input_state: &InputState, level:
             rng.gen_range(-1600..1600),
         );
     }
-    system_player_controller(&mut state.world, &state.sound_dash, &state.sound_shoot, &state.camera, input_state, dt);
+    system_player_controller(
+        &mut state.world,
+        &mut state.player_state_input,
+        &state.sound_shoot,
+        &state.camera,
+        input_state,
+        dt,
+    );
     system_ghost_ai(&mut state.world, dt);
-    system_crystal(&mut state.world, &mut state.points, &state.sound_crystal);
+    system_crystal(
+        &mut state.world,
+        &mut state.player_state_input,
+        &mut state.points,
+        &state.sound_crystal,
+    );
     system_bullets(&mut state.world, dt);
     system_camera_follow(&state.world, &mut state.camera, dt);
     system_animation(&mut state.world, dt);
     if state.points >= 3 {
         *level = Level::Intro;
+    }
+    for (_id, player) in state.world.query_mut::<&mut components::Player>() {
+        player_state::handle_state(
+            &mut player.state_machine,
+            &state.player_state_input,
+            &state.sound_dash,
+            dt,
+        );
     }
 }
 
@@ -180,7 +283,12 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
                         );
                         // render only if dst is in screen bounds + offset
                         let offset = 100;
-                        if !dst.has_intersection(sdl2::rect::Rect::new(-offset,-offset, 1280 + offset as u32, 720 + offset as u32)){
+                        if !dst.has_intersection(sdl2::rect::Rect::new(
+                            -offset,
+                            -offset,
+                            1280 + offset as u32,
+                            720 + offset as u32,
+                        )) {
                             return;
                         }
                         let _ = canvas.copy(texture, None, dst);
@@ -200,8 +308,13 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
         );
         // render only if dst is in screen bounds + offset
         let offset = 100;
-        if !dst.has_intersection(sdl2::rect::Rect::new(-offset,-offset, 1280 + offset as u32, 720 + offset as u32)){
-            continue
+        if !dst.has_intersection(sdl2::rect::Rect::new(
+            -offset,
+            -offset,
+            1280 + offset as u32,
+            720 + offset as u32,
+        )) {
+            continue;
         }
         let src = state
             .world
@@ -217,7 +330,12 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
     canvas.present();
 }
 
-fn system_crystal(world: &mut hecs::World, points: &mut u32, sound_crystal: &sdl2::mixer::Chunk){
+fn system_crystal(
+    world: &mut hecs::World,
+    player_state_input: &mut player_state::Input,
+    points: &mut u32,
+    sound_crystal: &sdl2::mixer::Chunk,
+) {
     let mut optional_player_position = None;
     let mut optional_player_size = None;
     for (_id, (transform, sprite, _)) in &mut world.query::<(
@@ -229,33 +347,36 @@ fn system_crystal(world: &mut hecs::World, points: &mut u32, sound_crystal: &sdl
         optional_player_size = Some(sprite.size);
     }
     let mut crystals_to_delete = vec![];
-    let mut should_regenerate_dash = false;
-    if let (Some(target_position), Some(target_size)) = (optional_player_position, optional_player_size){ // if target exist
+    let mut should_be_stopped = false;
+    if let (Some(target_position), Some(target_size)) =
+        (optional_player_position, optional_player_size)
+    {
+        // if target exist
         // dash crystal
         for (crystal_id, (transform, sprite, _)) in &mut world.query::<(
             &components::Transform,
             &components::Sprite,
             &components::DashingCrystal,
         )>() {
-            if sdl2::rect::Rect::new(target_position.x as i32, target_position.y as i32, target_size.x, target_size.y).has_intersection(
-                sdl2::rect::Rect::new(
-                    transform.position.x as i32,
-                    transform.position.y as i32,
-                    sprite.size.x,
-                    sprite.size.y,
-                ),
-            ) {
+            if sdl2::rect::Rect::new(
+                target_position.x as i32,
+                target_position.y as i32,
+                target_size.x,
+                target_size.y,
+            )
+            .has_intersection(sdl2::rect::Rect::new(
+                transform.position.x as i32,
+                transform.position.y as i32,
+                sprite.size.x,
+                sprite.size.y,
+            )) {
                 crystals_to_delete.push(crystal_id);
-                should_regenerate_dash = true;
+                should_be_stopped = true;
             }
         }
 
-        if should_regenerate_dash {
-            for (_id, controller) in world.query_mut::<&mut components::PlayerController>() {
-                controller.dashing_timer = -0.1;
-                controller.velocity = Vec2::ZERO;
-                controller.can_move = false;
-            }
+        if should_be_stopped {
+            *player_state_input = player_state::Input::Crystal;
         }
         // Point crystal
         for (crystal_id, (transform, sprite, _)) in &mut world.query::<(
@@ -263,14 +384,18 @@ fn system_crystal(world: &mut hecs::World, points: &mut u32, sound_crystal: &sdl
             &components::Sprite,
             &components::PointCrystal,
         )>() {
-            if sdl2::rect::Rect::new(target_position.x as i32, target_position.y as i32, target_size.x, target_size.y).has_intersection(
-                sdl2::rect::Rect::new(
-                    transform.position.x as i32,
-                    transform.position.y as i32,
-                    sprite.size.x,
-                    sprite.size.y,
-                ),
-            ) {
+            if sdl2::rect::Rect::new(
+                target_position.x as i32,
+                target_position.y as i32,
+                target_size.x,
+                target_size.y,
+            )
+            .has_intersection(sdl2::rect::Rect::new(
+                transform.position.x as i32,
+                transform.position.y as i32,
+                sprite.size.x,
+                sprite.size.y,
+            )) {
                 crystals_to_delete.push(crystal_id);
                 let _ = sdl2::mixer::Channel::all().play(sound_crystal, 0);
                 *points += 1;
@@ -293,9 +418,12 @@ fn system_ghost_ai(world: &mut hecs::World, dt: f32) {
         optional_player_position = Some(transform.position);
         optional_player_size = Some(sprite.size);
     }
-    if let (Some(target_pos), Some(target_size)) = (optional_player_position, optional_player_size){
+    if let (Some(target_pos), Some(target_size)) = (optional_player_position, optional_player_size)
+    {
         // ghost move
-        for (_id, (transform, ghost_ai)) in world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>(){
+        for (_id, (transform, ghost_ai)) in
+            world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>()
+        {
             let difference = target_pos - transform.position;
             if difference.length() <= ghost_ai.radius {
                 ghost_ai.velocity = difference.normalize() * ghost_ai.speed;
@@ -308,20 +436,25 @@ fn system_ghost_ai(world: &mut hecs::World, dt: f32) {
             &components::Sprite,
             &components::GhostAI,
         )>() {
-            if sdl2::rect::Rect::new(target_pos.x as i32, target_pos.y as i32, target_size.x, target_size.y).has_intersection(
-                sdl2::rect::Rect::new(
-                    transform.position.x as i32,
-                    transform.position.y as i32,
-                    sprite.size.x,
-                    sprite.size.y,
-                )) {
+            if sdl2::rect::Rect::new(
+                target_pos.x as i32,
+                target_pos.y as i32,
+                target_size.x,
+                target_size.y,
+            )
+            .has_intersection(sdl2::rect::Rect::new(
+                transform.position.x as i32,
+                transform.position.y as i32,
+                sprite.size.x,
+                sprite.size.y,
+            )) {
                 panic!("GAME OVER");
             }
         }
     }
 }
 
-fn system_animation(world: &mut hecs::World, dt: f32){
+fn system_animation(world: &mut hecs::World, dt: f32) {
     for (_id, animation_state) in world.query_mut::<&mut components::Animation>() {
         animation_state
             .state
@@ -331,7 +464,8 @@ fn system_animation(world: &mut hecs::World, dt: f32){
 
 fn system_bullets(world: &mut hecs::World, dt: f32) {
     // Update bullet position
-    for (_id, (transform, bullet)) in world.query_mut::<(&mut components::Transform, &components::Bullet)>()
+    for (_id, (transform, bullet)) in
+        world.query_mut::<(&mut components::Transform, &components::Bullet)>()
     {
         transform.position += bullet.velocity * dt;
     }
@@ -375,24 +509,31 @@ fn system_bullets(world: &mut hecs::World, dt: f32) {
     }
 }
 
-fn system_camera_follow(world: &hecs::World, camera: &mut Camera, dt: f32){
-    for (_id, transform) in &mut world.query::<With<&components::Transform, &components::CameraTarget>>()
+fn system_camera_follow(world: &hecs::World, camera: &mut Camera, dt: f32) {
+    for (_id, transform) in
+        &mut world.query::<With<&components::Transform, &components::CameraTarget>>()
     {
         let smooth_value = 15.0;
         let offset = Vec2::new(-1280.0 / 2.0 + 40.0, -720.0 / 2.0 + 40.0); // TODO: MAKE IT NOT HARDCODED
         let target_position = transform.position + offset;
-        let smoothed_position = camera
-            .position
-            .lerp(target_position, smooth_value * dt);
+        let smoothed_position = camera.position.lerp(target_position, smooth_value * dt);
         camera.position = smoothed_position;
     }
 }
 
-fn system_player_controller(world: &mut hecs::World, sound_dash: &sdl2::mixer::Chunk, sound_shoot: &sdl2::mixer::Chunk, camera: &Camera, input_state: &InputState, dt: f32) {
+fn system_player_controller(
+    world: &mut hecs::World,
+    player_state_input: &mut player_state::Input,
+    sound_shoot: &sdl2::mixer::Chunk,
+    camera: &Camera,
+    input_state: &InputState,
+    dt: f32,
+) {
     let mut bullets_to_create = vec![];
-    for (_id, (transform, controller)) in world.query_mut::<(
+    for (_id, (transform, controller, player)) in world.query_mut::<(
         &mut components::Transform,
-        &mut components::PlayerController
+        &mut components::PlayerController,
+        &mut components::Player,
     )>() {
         let friction = 50.0 * 64.0;
         let max_vel = 12.0 * 64.0; // GREAT VALUES 64 is one tile
@@ -408,42 +549,46 @@ fn system_player_controller(world: &mut hecs::World, sound_dash: &sdl2::mixer::C
         controller.dashing_time_left -= dt;
         controller.dashing_timer -= dt;
         controller.attack_timer -= dt;
-        let dash_time = 0.2;
-        let dash_cooldown = 0.5;
-        let mut is_dashing = controller.dashing_time_left > 0.0;
-        if !is_dashing
-            && controller.dashing_timer <= 0.0
-            && input_state.dash
-            && input_state.movement != Vec2::ZERO
-        {
-            let _ = sdl2::mixer::Channel::all().play(sound_dash, 0);
-            is_dashing = true;
-            controller.dashing_time_left = dash_time;
-            controller.dashing_timer = dash_cooldown;
-            controller.can_move = true;
-        }
-        if controller.can_move {
-            if is_dashing {
+        match player.state_machine.state {
+            player_state::State::Moving => {
+                if input_state.dash {
+                    *player_state_input = player_state::Input::Dash;
+                } else {
+                    if input_state.movement != Vec2::ZERO {
+                        *player_state_input = player_state::Input::Move;
+                    }
+                    transform.position += controller.velocity * dt; // apply velocity
+                }
+            }
+            player_state::State::Dashing => {
                 transform.position += input_state.movement.normalize_or_zero() * dt * max_vel * 3.0;
             }
-
-            transform.position += controller.velocity * dt; // apply velocity
+            player_state::State::Stopped => {
+                controller.velocity = Vec2::ZERO;
+                if input_state.dash {
+                    *player_state_input = player_state::Input::Dash;
+                }
+            }
+            player_state::State::Idle => {
+                if input_state.movement != Vec2::ZERO {
+                    *player_state_input = player_state::Input::Move;
+                }
+                transform.position += controller.velocity * dt; // apply velocity
+            }
         }
 
         if input_state.attack && controller.attack_timer <= 0.0 {
             let attack_cooldown = 1.0;
             controller.attack_timer = attack_cooldown;
-            let direction =
-                ((input_state.mouse_pos + camera.position) - transform.position).normalize_or_zero();
+            let direction = ((input_state.mouse_pos + camera.position) - transform.position)
+                .normalize_or_zero();
             let _ = sdl2::mixer::Channel::all().play(sound_shoot, 0);
             bullets_to_create.push((transform.position, direction));
         }
-
     }
-    for (pos, dir) in bullets_to_create{
+    for (pos, dir) in bullets_to_create {
         create_bullet(world, pos, dir);
     }
-
 }
 
 fn create_dash_crystal_on(state: &mut Level1State, x: i32, y: i32) {
