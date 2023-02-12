@@ -280,8 +280,10 @@ pub fn update(
     system_crystal(
         &mut state.world,
         &mut state.player_state_input,
+        &mut state.particles_state,
         &mut state.points,
         &state.sound_crystal,
+        &mut rng,
     );
     system_bullets(&mut state.world, &mut state.player_death, &mut state.mob_count, dt);
     system_camera_follow(&state.world, &mut state.camera, dt);
@@ -418,8 +420,10 @@ fn system_shooting_enemies(state: &mut Level1State, dt: f32) {
 fn system_crystal(
     world: &mut hecs::World,
     player_state_input: &mut player_state::Input,
+    particles_state: &mut sdl2_particles::ParticlesState,
     points: &mut u32,
     sound_crystal: &sdl2::mixer::Chunk,
+    rng: &mut ThreadRng
 ) {
     let mut optional_player_position = None;
     let mut optional_player_size = None;
@@ -483,6 +487,15 @@ fn system_crystal(
             )) {
                 crystals_to_delete.push(crystal_id);
                 let _ = sdl2::mixer::Channel::all().play(sound_crystal, 0);
+                for _ in 0..60{
+                    let particle_type = sdl2_particles::ParticleTypeBuilder::new(rng.gen_range(4..16),rng.gen_range(4..16),std::time::Duration::from_millis(rng.gen_range(200..300)))
+                        .with_color(sdl2::pixels::Color::RGB(rng.gen_range(71..111), rng.gen_range(5..45), rng.gen_range(20..60))) // 91 25 40
+                        .with_effect(sdl2_particles::ParticleEffect::LinearRotation { angular_velocity: 30.0 })
+                        .with_effect(sdl2_particles::ParticleEffect::FadeOut { delay: std::time::Duration::from_millis(150)})
+                        .with_effect(sdl2_particles::ParticleEffect::LinearMovement { velocity_x: rng.gen_range(-500.0..500.0),velocity_y: rng.gen_range(-500.0..500.0)})
+                        .build();
+                    particles_state.emit(1, &particle_type, transform.position.x + 40.0, transform.position.y + 40.0);
+                }
                 *points += 1;
             }
         }
