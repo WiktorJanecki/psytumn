@@ -54,7 +54,13 @@ impl<'a> Level1State<'a> {
         }
     }
 }
-pub fn update(state: &mut Level1State,canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, dt: f32, input_state: &InputState, level: &mut Level) {
+pub fn update(
+    state: &mut Level1State,
+    canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+    dt: f32,
+    input_state: &InputState,
+    level: &mut Level,
+) {
     puffin::profile_scope!("update");
     let mut rng = rand::thread_rng();
     if !state.update_started {
@@ -110,7 +116,7 @@ pub fn update(state: &mut Level1State,canvas: &mut sdl2::render::Canvas<sdl2::vi
                         }),
                     );
                 }
-                if value.abs() > 0.3{
+                if value.abs() > 0.3 {
                     state.tilemap.set(
                         x,
                         y,
@@ -128,70 +134,79 @@ pub fn update(state: &mut Level1State,canvas: &mut sdl2::render::Canvas<sdl2::vi
                 rng.gen_range(-1600..1600),
             );
         }
-        { // GENERATE CRYSTALS IN CORNERS
-        let map_size_x = 49;
-        let map_size_y = 49;
-        let mut max_x = 5;
-        let mut max_y = 5;
-        loop{
-            let try_x = rng.gen_range(0..=max_x);
-            let try_y = rng.gen_range(0..=max_y);
-            if let Some(Tile { filename }) = state.tilemap.get(try_x, try_y){
-                if filename == &"res/path.png"{
-                    create_point_crystal_on(
-                        state,
-                        try_x as i32 * state.tilemap.tile_width as i32 * 2 + state.tilemap.position().x,
-                        try_y as i32 * state.tilemap.tile_height as i32 * 2+ state.tilemap.position().y,
-                    );
-                    break;
+        {
+            // GENERATE CRYSTALS IN CORNERS
+            let map_size_x = 49;
+            let map_size_y = 49;
+            let mut max_x = 5;
+            let mut max_y = 5;
+            loop {
+                let try_x = rng.gen_range(0..=max_x);
+                let try_y = rng.gen_range(0..=max_y);
+                if let Some(Tile { filename }) = state.tilemap.get(try_x, try_y) {
+                    if filename == &"res/path.png" {
+                        create_point_crystal_on(
+                            state,
+                            try_x as i32 * state.tilemap.tile_width as i32 * 2
+                                + state.tilemap.position().x,
+                            try_y as i32 * state.tilemap.tile_height as i32 * 2
+                                + state.tilemap.position().y,
+                        );
+                        break;
+                    }
                 }
+                max_x += 1;
+                max_x = max_x.clamp(0, map_size_x);
+                max_y += 1;
+                max_y = max_y.clamp(0, map_size_y);
             }
-            max_x+=1;
-            max_x = max_x.clamp(0,map_size_x);
-            max_y+=1;
-            max_y = max_y.clamp(0,map_size_y);
-        }
-        let mut max_x = 5;
-        let mut max_y = 5;
-        loop{
-            let try_x = rng.gen_range(0..=max_x);
-            let try_y = rng.gen_range(0..=max_y);
-            if let Some(Tile { filename }) = state.tilemap.get(map_size_x - try_x, try_y){
-                if filename == &"res/path.png"{
-                    create_point_crystal_on(
-                        state,
-                        (map_size_x - try_x) as i32 * state.tilemap.tile_width as i32 * 2 + state.tilemap.position().x,
-                        try_y as i32 * state.tilemap.tile_height as i32 * 2+ state.tilemap.position().y,
-                    );
-                    break;
+            let mut max_x = 5;
+            let mut max_y = 5;
+            loop {
+                let try_x = rng.gen_range(0..=max_x);
+                let try_y = rng.gen_range(0..=max_y);
+                if let Some(Tile { filename }) = state.tilemap.get(map_size_x - try_x, try_y) {
+                    if filename == &"res/path.png" {
+                        create_point_crystal_on(
+                            state,
+                            (map_size_x - try_x) as i32 * state.tilemap.tile_width as i32 * 2
+                                + state.tilemap.position().x,
+                            try_y as i32 * state.tilemap.tile_height as i32 * 2
+                                + state.tilemap.position().y,
+                        );
+                        break;
+                    }
                 }
+                max_x += 1;
+                max_x = max_x.clamp(0, map_size_x);
+                max_y += 1;
+                max_y = max_y.clamp(0, map_size_y);
             }
-            max_x+=1;
-            max_x = max_x.clamp(0,map_size_x);
-            max_y+=1;
-            max_y = max_y.clamp(0,map_size_y);
-        }
-        let mut max_x = 5;
-        let mut max_y = 5;
-        loop{
-            let try_x = rng.gen_range(0..=max_x);
-            let try_y = rng.gen_range(0..=max_y);
-            if let Some(Tile { filename }) = state.tilemap.get(map_size_x - try_x, map_size_y - try_y){
-                if filename == &"res/path.png"{
-                    create_point_crystal_on(
-                        state,
-                        (map_size_x - try_x) as i32 * state.tilemap.tile_width as i32 * 2 + state.tilemap.position().x,
-                        (map_size_y - try_y) as i32 * state.tilemap.tile_height as i32 * 2+ state.tilemap.position().y,
-                    );
-                    break;
+            let mut max_x = 5;
+            let mut max_y = 5;
+            loop {
+                let try_x = rng.gen_range(0..=max_x);
+                let try_y = rng.gen_range(0..=max_y);
+                if let Some(Tile { filename }) =
+                    state.tilemap.get(map_size_x - try_x, map_size_y - try_y)
+                {
+                    if filename == &"res/path.png" {
+                        create_point_crystal_on(
+                            state,
+                            (map_size_x - try_x) as i32 * state.tilemap.tile_width as i32 * 2
+                                + state.tilemap.position().x,
+                            (map_size_y - try_y) as i32 * state.tilemap.tile_height as i32 * 2
+                                + state.tilemap.position().y,
+                        );
+                        break;
+                    }
                 }
+                max_x += 1;
+                max_x = max_x.clamp(0, map_size_x);
+                max_y += 1;
+                max_y = max_y.clamp(0, map_size_y);
             }
-            max_x+=1;
-            max_x = max_x.clamp(0,map_size_x);
-            max_y+=1;
-            max_y = max_y.clamp(0,map_size_y);
         }
-    }
     }
     // Update
     // Reset player input state
@@ -217,6 +232,7 @@ pub fn update(state: &mut Level1State,canvas: &mut sdl2::render::Canvas<sdl2::vi
         dt,
     );
     system_ghost_ai(state, canvas, level, dt);
+    system_orbit_ai(state, dt);
     system_crystal(
         &mut state.world,
         &mut state.player_state_input,
@@ -395,7 +411,12 @@ fn system_crystal(
     }
 }
 
-fn system_ghost_ai(state: &mut Level1State,canvas: &mut sdl2::render::Canvas<sdl2::video::Window>, level: &mut Level, dt: f32) {
+fn system_ghost_ai(
+    state: &mut Level1State,
+    canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+    level: &mut Level,
+    dt: f32,
+) {
     let mut optional_player_position = None;
     let mut optional_player_size = None;
     let mut should_die = false;
@@ -410,8 +431,9 @@ fn system_ghost_ai(state: &mut Level1State,canvas: &mut sdl2::render::Canvas<sdl
     if let (Some(target_pos), Some(target_size)) = (optional_player_position, optional_player_size)
     {
         // ghost move
-        for (_id, (transform, ghost_ai)) in
-            state.world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>()
+        for (_id, (transform, ghost_ai)) in state
+            .world
+            .query_mut::<(&mut components::Transform, &mut components::GhostAI)>()
         {
             let difference = target_pos - transform.position;
             if difference.length() <= ghost_ai.radius {
@@ -442,9 +464,56 @@ fn system_ghost_ai(state: &mut Level1State,canvas: &mut sdl2::render::Canvas<sdl
             }
         }
     }
-    if should_die{
+    if should_die {
         *state = Level1State::new(canvas);
         *level = Level::Menu;
+    }
+}
+
+fn system_orbit_ai(state: &mut Level1State, dt: f32) {
+    let mut optional_player_position = None;
+    let mut optional_player_size = None;
+    for (_id, (transform, sprite, _)) in &mut state.world.query::<(
+        &components::Transform,
+        &components::Sprite,
+        &components::Player,
+    )>() {
+        optional_player_position = Some(transform.position);
+        optional_player_size = Some(sprite.size);
+    }
+    if let (Some(target_pos), Some(_target_size)) = (optional_player_position, optional_player_size)
+    {
+        // ghost move
+        for (_id, (transform, orbit_ai)) in state
+            .world
+            .query_mut::<(&mut components::Transform, &mut components::OrbitAI)>()
+        {
+            let difference = target_pos - transform.position;
+            let x = transform.position.x;
+            let y = transform.position.y;
+            let dx = target_pos.x; // player x
+            let dy = target_pos.y; // player y
+            if !orbit_ai.is_orbiting && difference.length() <= 300.0 {
+                orbit_ai.is_orbiting = true;
+                let delta_x = x - dx;
+                let delta_y = y - dy;
+                orbit_ai.angle = delta_y.atan2(delta_x).to_degrees();
+            }
+            if difference.length() >= 400.0 {
+                orbit_ai.is_orbiting = false;
+            }
+            if orbit_ai.is_orbiting {
+                orbit_ai.angle += orbit_ai.angular_speed * dt;
+                let angle = (orbit_ai.angle).to_radians();
+                let mut goto_pos = transform.position;
+                goto_pos.x = dx + angle.cos() * 300.0;
+                goto_pos.y = dy + angle.sin() * 300.0;
+                transform.position = transform.position.lerp(goto_pos, 10.0 * dt);
+            } else if difference.length() <= orbit_ai.radius_ghosting {
+                orbit_ai.velocity = difference.normalize() * orbit_ai.speed;
+                transform.position += dt * orbit_ai.velocity;
+            }
+        }
     }
 }
 
@@ -540,7 +609,7 @@ fn system_player_controller(
             // apply friction
         }
         controller.velocity = controller.velocity.clamp_length_max(max_vel); // clamp velocity
-        if controller.velocity.length() < 5.0{
+        if controller.velocity.length() < 5.0 {
             controller.velocity = Vec2::ZERO;
         }
         controller.dashing_time_left -= dt;
@@ -707,7 +776,7 @@ fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32) {
             filename: "res/snake.png",
             size: UVec2::new(40, 40),
         },
-        components::GhostAI::default(),
+        components::OrbitAI::default(),
         enemy_animation_state,
     ));
 }

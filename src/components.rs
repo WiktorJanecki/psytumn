@@ -75,6 +75,30 @@ pub struct GhostAI {
     pub radius: f32,
 }
 
+pub struct OrbitAI {
+    pub velocity: Vec2,
+    pub speed: f32,
+    pub angular_speed: f32,
+    pub radius_ghosting: f32,
+    pub radius_orbiting: f32,
+    pub angle: f32,
+    pub is_orbiting: bool,
+}
+
+impl Default for OrbitAI {
+    fn default() -> Self {
+        Self {
+            velocity: Vec2::ZERO,
+            speed: 256.0,
+            angular_speed: 90.0, // deg per sec
+            radius_ghosting: 512.0 + 128.0,
+            radius_orbiting: 256.0,
+            angle: 0.0,
+            is_orbiting: false,
+        }
+    }
+}
+
 impl Default for GhostAI {
     fn default() -> Self {
         Self {

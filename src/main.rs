@@ -4,11 +4,11 @@ mod components;
 mod input;
 mod player_state;
 mod render;
-mod texturemanager;
 mod systems;
+mod texturemanager;
 
-mod menu;
 mod level1;
+mod menu;
 
 pub enum Level {
     Intro,
@@ -95,7 +95,7 @@ fn main() {
             Level::Menu => {
                 menu::update(&mut menu_state, dt, &mut input_state, &mut level);
                 menu::render(&mut menu_state, &mut canvas);
-            },
+            }
             Level::Level1 => {
                 level1::update(&mut level1_state, &mut canvas, dt, &input_state, &mut level);
                 level1::render(&mut level1_state, &mut canvas);
