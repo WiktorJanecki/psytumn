@@ -32,6 +32,7 @@ pub struct Level1State<'a> {
     sound_crystal: sdl2::mixer::Chunk,
     player_death: bool,
     mob_count: u32,
+    particles_state: sdl2_particles::ParticlesState,
 }
 
 impl<'a> Level1State<'a> {
@@ -57,6 +58,7 @@ impl<'a> Level1State<'a> {
             player_state_input: player_state::Input::Nothing,
             player_death: false,
             mob_count: 0,
+            particles_state: sdl2_particles::ParticlesState::init(100),
         }
     }
 }
@@ -261,12 +263,15 @@ pub fn update(
             &mut rng
         );
     }
+    state.particles_state.update(std::time::Duration::from_secs_f32(dt));
     system_player_controller(
         &mut state.world,
         &mut state.player_state_input,
+        &mut state.particles_state,
         &state.sound_shoot,
         &state.camera,
         input_state,
+        &mut rng,
         dt,
     );
     system_ghost_ai(&mut state.world, &mut state.player_death, dt);
@@ -342,6 +347,8 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
                     }
                 })
         });
+    // render particles
+    state.particles_state.render_with_offset(state.camera.x(), state.camera.y(), canvas);
     // render sprites
     for (id, (sprite, transform)) in &mut state
         .world
@@ -672,9 +679,11 @@ fn system_camera_follow(world: &hecs::World, camera: &mut Camera, dt: f32) {
 fn system_player_controller(
     world: &mut hecs::World,
     player_state_input: &mut player_state::Input,
+    particles_state: &mut sdl2_particles::ParticlesState,
     sound_shoot: &sdl2::mixer::Chunk,
     camera: &Camera,
     input_state: &InputState,
+    rng: &mut ThreadRng,
     dt: f32,
 ) {
     let mut bullets_to_create = vec![];
@@ -713,7 +722,14 @@ fn system_player_controller(
             }
             player_state::State::Dashing => {
                 transform.position += input_state.movement.normalize_or_zero() * dt * max_vel * 3.0;
-            }
+                let particle_type = sdl2_particles::ParticleTypeBuilder::new(rng.gen_range(8..16),rng.gen_range(8..16),std::time::Duration::from_millis(rng.gen_range(100..200)))
+                    .with_color(sdl2::pixels::Color::RGB(rng.gen_range(111..131), rng.gen_range(29..49), rng.gen_range(25..45))) // 121 39 35
+                    .with_effect(sdl2_particles::ParticleEffect::LinearRotation { angular_velocity: 30.0 })
+                    .with_effect(sdl2_particles::ParticleEffect::FadeOut { delay: std::time::Duration::ZERO})
+                    .with_effect(sdl2_particles::ParticleEffect::LinearMovement { velocity_x: - controller.velocity.x / 2.0 + rng.gen_range(-250.0..250.0), velocity_y: - controller.velocity.y / 2.0 + rng.gen_range(-250.0..250.0) })
+                    .build();
+                particles_state.emit(1, &particle_type, transform.position.x + 40.0, transform.position.y + 40.0);
+                }
             player_state::State::Stopped => {
                 controller.velocity = Vec2::ZERO;
                 if input_state.dash {

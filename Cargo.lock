@@ -437,9 +437,9 @@ dependencies = [
 
 [[package]]
 name = "sdl2_particles"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9a7217e8b81d9ccdcdbbb68d756571e51905ad959efbcbafa68b8831924e46e"
+checksum = "7229403f7e7429086bcae337d7ec909bf3ed0ef61f7bbe465141717f473f183d"
 dependencies = [
  "rand",
  "sdl2",
