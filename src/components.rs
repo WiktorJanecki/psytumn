@@ -47,8 +47,14 @@ pub struct Sprite {
     pub size: UVec2,
 }
 
+#[derive(PartialEq)]
+pub enum BulletType {
+    FromPlayer,
+    FromEnemy,
+}
 pub struct Bullet {
     pub velocity: Vec2,
+    pub bullet_type: BulletType,
 }
 
 pub struct Player {
@@ -69,6 +75,8 @@ impl Default for Player {
 
 pub struct CameraTarget;
 
+pub struct Enemy;
+
 pub struct GhostAI {
     pub velocity: Vec2,
     pub speed: f32,
@@ -83,6 +91,22 @@ pub struct OrbitAI {
     pub radius_orbiting: f32,
     pub angle: f32,
     pub is_orbiting: bool,
+}
+
+pub struct ShootingEnemy {
+    pub timer: f32,
+    pub cooldown: f32,
+    pub range: f32,
+}
+
+impl Default for ShootingEnemy {
+    fn default() -> Self {
+        Self {
+            timer: 0.0,
+            cooldown: 1.0,
+            range: 400.0,
+        }
+    }
 }
 
 impl Default for OrbitAI {

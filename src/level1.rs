@@ -6,7 +6,7 @@ use sdl2::{render::TextureCreator, video::WindowContext};
 use sdl2_animation::{Animation, Keyframe};
 
 use crate::{
-    components,
+    components::{self, BulletType},
     input::InputState,
     player_state,
     render::{Camera, Tile, Tilemap},
@@ -253,6 +253,7 @@ pub fn update(
         dt,
     );
     system_ghost_ai(state, canvas, level, dt);
+    system_shooting_enemies(state, dt);
     system_orbit_ai(state, dt);
     system_crystal(
         &mut state.world,
@@ -260,7 +261,7 @@ pub fn update(
         &mut state.points,
         &state.sound_crystal,
     );
-    system_bullets(&mut state.world, dt);
+    system_bullets(state, canvas, level, dt);
     system_camera_follow(&state.world, &mut state.camera, dt);
     system_animation(&mut state.world, dt);
     if state.points >= 3 {
@@ -353,6 +354,37 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
         let _ = canvas.copy(texture, src, dst);
     }
     canvas.present();
+}
+
+fn system_shooting_enemies(state: &mut Level1State, dt: f32) {
+    let mut optional_player_position = None;
+    let mut bullets_to_create = vec![];
+    for (_id, (transform, _)) in &mut state
+        .world
+        .query::<(&components::Transform, &components::Player)>()
+    {
+        optional_player_position = Some(transform.position);
+    }
+    for (_id, (transform, shooting)) in state
+        .world
+        .query_mut::<(&components::Transform, &mut components::ShootingEnemy)>()
+    {
+        shooting.timer -= dt;
+        if let Some(target_position) = optional_player_position {
+            let direction = target_position - transform.position;
+            if shooting.timer <= 0.0 && direction.length() <= shooting.range {
+                shooting.timer = shooting.cooldown;
+                bullets_to_create.push((
+                    transform.position,
+                    direction.normalize(),
+                    BulletType::FromEnemy,
+                ));
+            }
+        }
+    }
+    for bullet in bullets_to_create {
+        create_bullet(&mut state.world, bullet.0, bullet.1, bullet.2);
+    }
 }
 
 fn system_crystal(
@@ -546,16 +578,33 @@ fn system_animation(world: &mut hecs::World, dt: f32) {
     }
 }
 
-fn system_bullets(world: &mut hecs::World, dt: f32) {
+fn system_bullets(
+    state: &mut Level1State,
+    canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
+    level: &mut Level,
+    dt: f32,
+) {
+    let mut should_die = false;
+    let mut optional_player_position = None;
+    let mut optional_player_size = None;
+    for (_id, (transform, sprite, _)) in &mut state.world.query::<(
+        &components::Transform,
+        &components::Sprite,
+        &components::Player,
+    )>() {
+        optional_player_position = Some(transform.position);
+        optional_player_size = Some(sprite.size);
+    }
     // Update bullet position
-    for (_id, (transform, bullet)) in
-        world.query_mut::<(&mut components::Transform, &components::Bullet)>()
+    for (_id, (transform, bullet)) in state
+        .world
+        .query_mut::<(&mut components::Transform, &components::Bullet)>()
     {
         transform.position += bullet.velocity * dt;
     }
     let mut bullets_ids_to_kill = vec![];
     let mut enemies_ids_to_kill = vec![];
-    for (bullet_id, (transform, sprite, _)) in &mut world.query::<(
+    for (bullet_id, (transform, sprite, bullet)) in &mut state.world.query::<(
         &components::Transform,
         &components::Sprite,
         &components::Bullet,
@@ -566,10 +615,10 @@ fn system_bullets(world: &mut hecs::World, dt: f32) {
             sprite.size.x,
             sprite.size.y,
         );
-        for (enemy_id, (enemy_transform, enemy_sprite, _)) in &mut world.query::<(
+        for (enemy_id, (enemy_transform, enemy_sprite, _)) in &mut state.world.query::<(
             &components::Transform,
             &components::Sprite,
-            &components::GhostAI,
+            &components::Enemy,
         )>() {
             let enemy_rect = sdl2::rect::Rect::new(
                 enemy_transform.position.x as i32,
@@ -577,19 +626,34 @@ fn system_bullets(world: &mut hecs::World, dt: f32) {
                 enemy_sprite.size.x,
                 enemy_sprite.size.y,
             );
-            if bullet_rect.has_intersection(enemy_rect) {
+            if bullet.bullet_type == BulletType::FromPlayer
+                && bullet_rect.has_intersection(enemy_rect)
+            {
                 bullets_ids_to_kill.push(bullet_id);
                 enemies_ids_to_kill.push(enemy_id);
                 break;
             }
+            if let (Some(pos), Some(size)) = (optional_player_position, optional_player_size) {
+                if bullet.bullet_type == BulletType::FromEnemy {
+                    let player_rect =
+                        sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y);
+                    if bullet_rect.has_intersection(player_rect) {
+                        should_die = true;
+                    }
+                }
+            }
         }
     }
     for bullet in bullets_ids_to_kill.iter() {
-        let _ = world.despawn(*bullet);
+        let _ = state.world.despawn(*bullet);
     }
 
     for enemy in enemies_ids_to_kill.iter() {
-        let _ = world.despawn(*enemy);
+        let _ = state.world.despawn(*enemy);
+    }
+    if should_die {
+        *state = Level1State::new(canvas);
+        *level = Level::Menu;
     }
 }
 
@@ -674,7 +738,7 @@ fn system_player_controller(
         }
     }
     for (pos, dir) in bullets_to_create {
-        create_bullet(world, pos, dir);
+        create_bullet(world, pos, dir, BulletType::FromPlayer);
     }
 }
 
@@ -798,11 +862,18 @@ fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32) {
             size: UVec2::new(40, 40),
         },
         components::OrbitAI::default(),
+        components::ShootingEnemy::default(),
+        components::Enemy,
         enemy_animation_state,
     ));
 }
 
-fn create_bullet(world: &mut hecs::World, position: Vec2, direction: Vec2) {
+fn create_bullet(
+    world: &mut hecs::World,
+    position: Vec2,
+    direction: Vec2,
+    bullet_type: BulletType,
+) {
     let speed = 64.0 * 15.0;
     world.spawn((
         components::Transform::with_position(position.x, position.y),
@@ -812,6 +883,7 @@ fn create_bullet(world: &mut hecs::World, position: Vec2, direction: Vec2) {
         },
         components::Bullet {
             velocity: direction * speed,
+            bullet_type,
         },
     ));
 }
