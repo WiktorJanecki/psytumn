@@ -127,12 +127,33 @@ pub fn update(
                 }
             }
         }
-        for _ in 0..32 {
-            create_dash_crystal_on(
-                state,
-                rng.gen_range(-1600..1600),
-                rng.gen_range(-1600..1600),
+        let mut dash_crystal_count = 0;
+        while dash_crystal_count <= 50 {
+            let mut position = Vec2::new(
+                rng.gen_range(-1600.0..1600.0),
+                rng.gen_range(-1600.0..1600.0),
             );
+            let mut should_create_next_one = true;
+            while should_create_next_one {
+                dash_crystal_count += 1;
+                let random_dir = match rng.gen_range(1..=8) {
+                    1 => Vec2::new(1.0, 0.0),            //
+                    2 => Vec2::new(1.0, 1.0),            //
+                    3 => Vec2::new(0.0, 1.0),            //
+                    4 => Vec2::new(-1.0, 1.0),           //
+                    5 => Vec2::new(-1.0, 0.0),           //
+                    6 => Vec2::new(-1.0, -1.0),          //
+                    7 => Vec2::new(0.0, -1.0),           //
+                    8 => Vec2::new(1.0, -1.0),           //
+                    _ => panic!("WTF random is broken"), //
+                }
+                .normalize();
+                let distance = 400.0;
+                position += random_dir * distance;
+                create_dash_crystal_on(state, position.x as i32, position.y as i32);
+
+                should_create_next_one = rng.gen_bool(0.50);
+            }
         }
         {
             // GENERATE CRYSTALS IN CORNERS

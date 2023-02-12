@@ -30,6 +30,10 @@ pub fn handle_state(
     match state_machine.state {
         State::Idle => match input {
             Input::Move => state_machine.state = State::Moving,
+            Input::Crystal => {
+                state_machine.state = State::Stopped;
+                state_machine.dashing_cooldown_timer = 0.0;
+            }
             _ => {}
         },
         State::Moving => match input {
