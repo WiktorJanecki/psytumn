@@ -102,7 +102,7 @@ pub struct ShootingEnemy {
 impl Default for ShootingEnemy {
     fn default() -> Self {
         Self {
-            timer: 0.0,
+            timer: 1.0,
             cooldown: 1.0,
             range: 400.0,
         }
