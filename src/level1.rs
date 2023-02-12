@@ -1,7 +1,7 @@
 use bracket_noise::prelude::{FastNoise, NoiseType};
 use glam::{UVec2, Vec2};
 use hecs::With;
-use rand::Rng;
+use rand::{Rng, rngs::ThreadRng};
 use sdl2::{render::TextureCreator, video::WindowContext};
 use sdl2_animation::{Animation, Keyframe};
 
@@ -14,6 +14,8 @@ use crate::{
     Level,
 };
 
+
+const MOB_LIMIT: u32 = 20;
 pub struct Level1State<'a> {
     update_started: bool,
     texture_creator: TextureCreator<WindowContext>,
@@ -29,6 +31,7 @@ pub struct Level1State<'a> {
     sound_shoot: sdl2::mixer::Chunk,
     sound_crystal: sdl2::mixer::Chunk,
     player_death: bool,
+    mob_count: u32,
 }
 
 impl<'a> Level1State<'a> {
@@ -53,6 +56,7 @@ impl<'a> Level1State<'a> {
             sound_crystal,
             player_state_input: player_state::Input::Nothing,
             player_death: false,
+            mob_count: 0,
         }
     }
 }
@@ -230,6 +234,15 @@ pub fn update(
                 max_y = max_y.clamp(0, map_size_y);
             }
         }
+        for _ in 0..MOB_LIMIT/4{
+            state.mob_count+=1;
+            create_enemy_on(
+                &mut state.world,
+                rng.gen_range(-1600..1600),
+                rng.gen_range(-1600..1600),
+                &mut rng
+            );
+        }
     }
     // Update
     // Reset player input state
@@ -237,13 +250,15 @@ pub fn update(
 
     // Spawn enemies every second
     state.enemy_spawner_timer -= dt;
-    if state.enemy_spawner_timer <= 0.0 {
+    if state.enemy_spawner_timer <= 0.0 && state.mob_count <= MOB_LIMIT{
+        state.mob_count+=1;
         let enemy_spawn_cooldown = 1.0;
         state.enemy_spawner_timer = enemy_spawn_cooldown;
         create_enemy_on(
             &mut state.world,
             rng.gen_range(-1600..1600),
             rng.gen_range(-1600..1600),
+            &mut rng
         );
     }
     system_player_controller(
@@ -263,7 +278,7 @@ pub fn update(
         &mut state.points,
         &state.sound_crystal,
     );
-    system_bullets(&mut state.world, &mut state.player_death, dt);
+    system_bullets(&mut state.world, &mut state.player_death, &mut state.mob_count, dt);
     system_camera_follow(&state.world, &mut state.camera, dt);
     system_animation(&mut state.world, dt);
     if state.points >= 3 {
@@ -573,7 +588,7 @@ fn system_animation(world: &mut hecs::World, dt: f32) {
     }
 }
 
-fn system_bullets(world: &mut hecs::World, player_death: &mut bool, dt: f32) {
+fn system_bullets(world: &mut hecs::World, player_death: &mut bool, mob_count: &mut u32, dt: f32) {
     let mut optional_player_position = None;
     let mut optional_player_size = None;
     for (_id, (transform, sprite, _)) in &mut world.query::<(
@@ -638,6 +653,7 @@ fn system_bullets(world: &mut hecs::World, player_death: &mut bool, dt: f32) {
 
     for enemy in enemies_ids_to_kill.iter() {
         let _ = world.despawn(*enemy);
+        *mob_count -= 1;
     }
 }
 
@@ -820,7 +836,7 @@ fn create_point_crystal_on(state: &mut Level1State, x: i32, y: i32) {
     ));
 }
 
-fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32) {
+fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32, rng :&mut ThreadRng) {
     let idle_animation_snake: Animation = vec![
         Keyframe {
             x: 0,
@@ -839,17 +855,31 @@ fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32) {
     ];
     let mut enemy_animation_state = components::Animation::default();
     enemy_animation_state.state.play(&idle_animation_snake);
-    world.spawn((
-        components::Transform::with_position(x as f32, y as f32),
-        components::Sprite {
-            filename: "res/snake.png",
-            size: UVec2::new(40, 40),
-        },
-        components::OrbitAI::default(),
-        components::ShootingEnemy::default(),
-        components::Enemy,
-        enemy_animation_state,
-    ));
+    if rng.gen_bool(0.7){
+        world.spawn((
+            components::Transform::with_position(x as f32, y as f32),
+            components::Sprite {
+                filename: "res/snake.png",
+                size: UVec2::new(40, 40),
+            },
+            components::GhostAI::default(),
+            components::Enemy,
+            enemy_animation_state,
+        ));
+    }
+    else{
+        world.spawn((
+            components::Transform::with_position(x as f32, y as f32),
+            components::Sprite {
+                filename: "res/snake.png",
+                size: UVec2::new(40, 40),
+            },
+            components::OrbitAI::default(),
+            components::ShootingEnemy::default(),
+            components::Enemy,
+            enemy_animation_state,
+        ));
+    }
 }
 
 fn create_bullet(
