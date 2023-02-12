@@ -28,6 +28,7 @@ pub struct Level1State<'a> {
     sound_dash: sdl2::mixer::Chunk,
     sound_shoot: sdl2::mixer::Chunk,
     sound_crystal: sdl2::mixer::Chunk,
+    player_death: bool,
 }
 
 impl<'a> Level1State<'a> {
@@ -51,6 +52,7 @@ impl<'a> Level1State<'a> {
             sound_shoot,
             sound_crystal,
             player_state_input: player_state::Input::Nothing,
+            player_death: false,
         }
     }
 }
@@ -252,7 +254,7 @@ pub fn update(
         input_state,
         dt,
     );
-    system_ghost_ai(state, canvas, level, dt);
+    system_ghost_ai(&mut state.world, &mut state.player_death, dt);
     system_shooting_enemies(state, dt);
     system_orbit_ai(state, dt);
     system_crystal(
@@ -261,11 +263,15 @@ pub fn update(
         &mut state.points,
         &state.sound_crystal,
     );
-    system_bullets(state, canvas, level, dt);
+    system_bullets(&mut state.world, &mut state.player_death, dt);
     system_camera_follow(&state.world, &mut state.camera, dt);
     system_animation(&mut state.world, dt);
     if state.points >= 3 {
         *level = Level::Intro;
+    }
+    if state.player_death {
+        *state = Level1State::new(canvas);
+        *level = Level::Level1;
     }
     for (_id, player) in state.world.query_mut::<&mut components::Player>() {
         player_state::handle_state(
@@ -464,16 +470,10 @@ fn system_crystal(
     }
 }
 
-fn system_ghost_ai(
-    state: &mut Level1State,
-    canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
-    level: &mut Level,
-    dt: f32,
-) {
+fn system_ghost_ai(world: &mut hecs::World, player_death: &mut bool, dt: f32) {
     let mut optional_player_position = None;
     let mut optional_player_size = None;
-    let mut should_die = false;
-    for (_id, (transform, sprite, _)) in &mut state.world.query::<(
+    for (_id, (transform, sprite, _)) in &mut world.query::<(
         &components::Transform,
         &components::Sprite,
         &components::Player,
@@ -484,9 +484,8 @@ fn system_ghost_ai(
     if let (Some(target_pos), Some(target_size)) = (optional_player_position, optional_player_size)
     {
         // ghost move
-        for (_id, (transform, ghost_ai)) in state
-            .world
-            .query_mut::<(&mut components::Transform, &mut components::GhostAI)>()
+        for (_id, (transform, ghost_ai)) in
+            world.query_mut::<(&mut components::Transform, &mut components::GhostAI)>()
         {
             let difference = target_pos - transform.position;
             if difference.length() <= ghost_ai.radius {
@@ -495,7 +494,7 @@ fn system_ghost_ai(
             }
         }
         // Player death
-        for (_id, (transform, sprite, _)) in &mut state.world.query::<(
+        for (_id, (transform, sprite, _)) in &mut world.query::<(
             &components::Transform,
             &components::Sprite,
             &components::GhostAI,
@@ -512,14 +511,10 @@ fn system_ghost_ai(
                 sprite.size.x,
                 sprite.size.y,
             )) {
-                should_die = true;
+                *player_death = true;
                 break;
             }
         }
-    }
-    if should_die {
-        *state = Level1State::new(canvas);
-        *level = Level::Menu;
     }
 }
 
@@ -578,16 +573,10 @@ fn system_animation(world: &mut hecs::World, dt: f32) {
     }
 }
 
-fn system_bullets(
-    state: &mut Level1State,
-    canvas: &mut sdl2::render::Canvas<sdl2::video::Window>,
-    level: &mut Level,
-    dt: f32,
-) {
-    let mut should_die = false;
+fn system_bullets(world: &mut hecs::World, player_death: &mut bool, dt: f32) {
     let mut optional_player_position = None;
     let mut optional_player_size = None;
-    for (_id, (transform, sprite, _)) in &mut state.world.query::<(
+    for (_id, (transform, sprite, _)) in &mut world.query::<(
         &components::Transform,
         &components::Sprite,
         &components::Player,
@@ -596,15 +585,14 @@ fn system_bullets(
         optional_player_size = Some(sprite.size);
     }
     // Update bullet position
-    for (_id, (transform, bullet)) in state
-        .world
-        .query_mut::<(&mut components::Transform, &components::Bullet)>()
+    for (_id, (transform, bullet)) in
+        world.query_mut::<(&mut components::Transform, &components::Bullet)>()
     {
         transform.position += bullet.velocity * dt;
     }
     let mut bullets_ids_to_kill = vec![];
     let mut enemies_ids_to_kill = vec![];
-    for (bullet_id, (transform, sprite, bullet)) in &mut state.world.query::<(
+    for (bullet_id, (transform, sprite, bullet)) in &mut world.query::<(
         &components::Transform,
         &components::Sprite,
         &components::Bullet,
@@ -615,7 +603,7 @@ fn system_bullets(
             sprite.size.x,
             sprite.size.y,
         );
-        for (enemy_id, (enemy_transform, enemy_sprite, _)) in &mut state.world.query::<(
+        for (enemy_id, (enemy_transform, enemy_sprite, _)) in &mut world.query::<(
             &components::Transform,
             &components::Sprite,
             &components::Enemy,
@@ -638,22 +626,18 @@ fn system_bullets(
                     let player_rect =
                         sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y);
                     if bullet_rect.has_intersection(player_rect) {
-                        should_die = true;
+                        *player_death = true;
                     }
                 }
             }
         }
     }
     for bullet in bullets_ids_to_kill.iter() {
-        let _ = state.world.despawn(*bullet);
+        let _ = world.despawn(*bullet);
     }
 
     for enemy in enemies_ids_to_kill.iter() {
-        let _ = state.world.despawn(*enemy);
-    }
-    if should_die {
-        *state = Level1State::new(canvas);
-        *level = Level::Menu;
+        let _ = world.despawn(*enemy);
     }
 }
 
