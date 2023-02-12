@@ -1,7 +1,7 @@
 use bracket_noise::prelude::{FastNoise, NoiseType};
 use glam::{UVec2, Vec2};
 use hecs::With;
-use rand::{Rng, rngs::ThreadRng};
+use rand::{rngs::ThreadRng, Rng};
 use sdl2::{render::TextureCreator, video::WindowContext};
 use sdl2_animation::{Animation, Keyframe};
 
@@ -13,7 +13,6 @@ use crate::{
     texturemanager::TextureManager,
     Level,
 };
-
 
 const MOB_LIMIT: u32 = 20;
 pub struct Level1State<'a> {
@@ -236,13 +235,13 @@ pub fn update(
                 max_y = max_y.clamp(0, map_size_y);
             }
         }
-        for _ in 0..MOB_LIMIT/4{
-            state.mob_count+=1;
+        for _ in 0..MOB_LIMIT / 4 {
+            state.mob_count += 1;
             create_enemy_on(
                 &mut state.world,
                 rng.gen_range(-1600..1600),
                 rng.gen_range(-1600..1600),
-                &mut rng
+                &mut rng,
             );
         }
     }
@@ -252,18 +251,20 @@ pub fn update(
 
     // Spawn enemies every second
     state.enemy_spawner_timer -= dt;
-    if state.enemy_spawner_timer <= 0.0 && state.mob_count <= MOB_LIMIT{
-        state.mob_count+=1;
+    if state.enemy_spawner_timer <= 0.0 && state.mob_count <= MOB_LIMIT {
+        state.mob_count += 1;
         let enemy_spawn_cooldown = 1.0;
         state.enemy_spawner_timer = enemy_spawn_cooldown;
         create_enemy_on(
             &mut state.world,
             rng.gen_range(-1600..1600),
             rng.gen_range(-1600..1600),
-            &mut rng
+            &mut rng,
         );
     }
-    state.particles_state.update(std::time::Duration::from_secs_f32(dt));
+    state
+        .particles_state
+        .update(std::time::Duration::from_secs_f32(dt));
     system_player_controller(
         &mut state.world,
         &mut state.player_state_input,
@@ -285,7 +286,12 @@ pub fn update(
         &state.sound_crystal,
         &mut rng,
     );
-    system_bullets(&mut state.world, &mut state.player_death, &mut state.mob_count, dt);
+    system_bullets(
+        &mut state.world,
+        &mut state.player_death,
+        &mut state.mob_count,
+        dt,
+    );
     system_camera_follow(&state.world, &mut state.camera, dt);
     system_animation(&mut state.world, dt);
     if state.points >= 3 {
@@ -293,7 +299,7 @@ pub fn update(
     }
     if state.player_death {
         *state = Level1State::new(canvas);
-        *level = Level::Level1;
+        *level = Level::Menu;
     }
     for (_id, player) in state.world.query_mut::<&mut components::Player>() {
         player_state::handle_state(
@@ -350,7 +356,9 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
                 })
         });
     // render particles
-    state.particles_state.render_with_offset(state.camera.x(), state.camera.y(), canvas);
+    state
+        .particles_state
+        .render_with_offset(state.camera.x(), state.camera.y(), canvas);
     // render sprites
     for (id, (sprite, transform)) in &mut state
         .world
@@ -423,7 +431,7 @@ fn system_crystal(
     particles_state: &mut sdl2_particles::ParticlesState,
     points: &mut u32,
     sound_crystal: &sdl2::mixer::Chunk,
-    rng: &mut ThreadRng
+    rng: &mut ThreadRng,
 ) {
     let mut optional_player_position = None;
     let mut optional_player_size = None;
@@ -487,14 +495,34 @@ fn system_crystal(
             )) {
                 crystals_to_delete.push(crystal_id);
                 let _ = sdl2::mixer::Channel::all().play(sound_crystal, 0);
-                for _ in 0..60{
-                    let particle_type = sdl2_particles::ParticleTypeBuilder::new(rng.gen_range(4..16),rng.gen_range(4..16),std::time::Duration::from_millis(rng.gen_range(200..300)))
-                        .with_color(sdl2::pixels::Color::RGB(rng.gen_range(71..111), rng.gen_range(5..45), rng.gen_range(20..60))) // 91 25 40
-                        .with_effect(sdl2_particles::ParticleEffect::LinearRotation { angular_velocity: 30.0 })
-                        .with_effect(sdl2_particles::ParticleEffect::FadeOut { delay: std::time::Duration::from_millis(150)})
-                        .with_effect(sdl2_particles::ParticleEffect::LinearMovement { velocity_x: rng.gen_range(-500.0..500.0),velocity_y: rng.gen_range(-500.0..500.0)})
-                        .build();
-                    particles_state.emit(1, &particle_type, transform.position.x + 40.0, transform.position.y + 40.0);
+                for _ in 0..60 {
+                    let particle_type = sdl2_particles::ParticleTypeBuilder::new(
+                        rng.gen_range(4..16),
+                        rng.gen_range(4..16),
+                        std::time::Duration::from_millis(rng.gen_range(200..300)),
+                    )
+                    .with_color(sdl2::pixels::Color::RGB(
+                        rng.gen_range(71..111),
+                        rng.gen_range(5..45),
+                        rng.gen_range(20..60),
+                    )) // 91 25 40
+                    .with_effect(sdl2_particles::ParticleEffect::LinearRotation {
+                        angular_velocity: 30.0,
+                    })
+                    .with_effect(sdl2_particles::ParticleEffect::FadeOut {
+                        delay: std::time::Duration::from_millis(150),
+                    })
+                    .with_effect(sdl2_particles::ParticleEffect::LinearMovement {
+                        velocity_x: rng.gen_range(-500.0..500.0),
+                        velocity_y: rng.gen_range(-500.0..500.0),
+                    })
+                    .build();
+                    particles_state.emit(
+                        1,
+                        &particle_type,
+                        transform.position.x + 40.0,
+                        transform.position.y + 40.0,
+                    );
                 }
                 *points += 1;
             }
@@ -735,14 +763,34 @@ fn system_player_controller(
             }
             player_state::State::Dashing => {
                 transform.position += input_state.movement.normalize_or_zero() * dt * max_vel * 3.0;
-                let particle_type = sdl2_particles::ParticleTypeBuilder::new(rng.gen_range(8..16),rng.gen_range(8..16),std::time::Duration::from_millis(rng.gen_range(100..200)))
-                    .with_color(sdl2::pixels::Color::RGB(rng.gen_range(111..131), rng.gen_range(29..49), rng.gen_range(25..45))) // 121 39 35
-                    .with_effect(sdl2_particles::ParticleEffect::LinearRotation { angular_velocity: 30.0 })
-                    .with_effect(sdl2_particles::ParticleEffect::FadeOut { delay: std::time::Duration::ZERO})
-                    .with_effect(sdl2_particles::ParticleEffect::LinearMovement { velocity_x: - controller.velocity.x / 2.0 + rng.gen_range(-250.0..250.0), velocity_y: - controller.velocity.y / 2.0 + rng.gen_range(-250.0..250.0) })
-                    .build();
-                particles_state.emit(1, &particle_type, transform.position.x + 40.0, transform.position.y + 40.0);
-                }
+                let particle_type = sdl2_particles::ParticleTypeBuilder::new(
+                    rng.gen_range(8..16),
+                    rng.gen_range(8..16),
+                    std::time::Duration::from_millis(rng.gen_range(100..200)),
+                )
+                .with_color(sdl2::pixels::Color::RGB(
+                    rng.gen_range(111..131),
+                    rng.gen_range(29..49),
+                    rng.gen_range(25..45),
+                )) // 121 39 35
+                .with_effect(sdl2_particles::ParticleEffect::LinearRotation {
+                    angular_velocity: 30.0,
+                })
+                .with_effect(sdl2_particles::ParticleEffect::FadeOut {
+                    delay: std::time::Duration::ZERO,
+                })
+                .with_effect(sdl2_particles::ParticleEffect::LinearMovement {
+                    velocity_x: -controller.velocity.x / 2.0 + rng.gen_range(-250.0..250.0),
+                    velocity_y: -controller.velocity.y / 2.0 + rng.gen_range(-250.0..250.0),
+                })
+                .build();
+                particles_state.emit(
+                    1,
+                    &particle_type,
+                    transform.position.x + 40.0,
+                    transform.position.y + 40.0,
+                );
+            }
             player_state::State::Stopped => {
                 controller.velocity = Vec2::ZERO;
                 if input_state.dash {
@@ -865,7 +913,7 @@ fn create_point_crystal_on(state: &mut Level1State, x: i32, y: i32) {
     ));
 }
 
-fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32, rng :&mut ThreadRng) {
+fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32, rng: &mut ThreadRng) {
     let idle_animation_snake: Animation = vec![
         Keyframe {
             x: 0,
@@ -884,7 +932,7 @@ fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32, rng :&mut ThreadRng)
     ];
     let mut enemy_animation_state = components::Animation::default();
     enemy_animation_state.state.play(&idle_animation_snake);
-    if rng.gen_bool(0.7){
+    if rng.gen_bool(0.7) {
         world.spawn((
             components::Transform::with_position(x as f32, y as f32),
             components::Sprite {
@@ -895,8 +943,7 @@ fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32, rng :&mut ThreadRng)
             components::Enemy,
             enemy_animation_state,
         ));
-    }
-    else{
+    } else {
         world.spawn((
             components::Transform::with_position(x as f32, y as f32),
             components::Sprite {
