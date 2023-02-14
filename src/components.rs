@@ -95,6 +95,7 @@ pub struct OrbitAI {
     pub radius_orbiting: f32,
     pub angle: f32,
     pub is_orbiting: bool,
+    pub target_pos: Vec2,
 }
 
 pub struct ShootingEnemy {
@@ -117,12 +118,13 @@ impl Default for OrbitAI {
     fn default() -> Self {
         Self {
             velocity: Vec2::ZERO,
-            speed: 256.0,
+            speed: 400.0,
             angular_speed: 90.0, // deg per sec
             radius_ghosting: 512.0 + 128.0,
             radius_orbiting: 256.0,
             angle: 0.0,
             is_orbiting: false,
+            target_pos: Vec2::ZERO,
         }
     }
 }

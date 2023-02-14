@@ -297,7 +297,7 @@ pub fn update(
     if state.points >= 3 {
         *level = Level::Intro;
     }
-    if state.player_death{
+    if state.player_death {
         *state = Level1State::new(canvas);
         *level = Level::Menu;
     }
@@ -394,14 +394,14 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
     canvas.present();
 }
 
-fn player_damage(world: &mut hecs::World, player_death: &mut bool){
+fn player_damage(world: &mut hecs::World, player_death: &mut bool) {
     let cooldown = 0.5;
-    for (_, player) in world.query_mut::<&mut components::Player>(){
-        if player.invincibility_timer <= 0.0{
+    for (_, player) in world.query_mut::<&mut components::Player>() {
+        if player.invincibility_timer <= 0.0 && false {
             player.lives -= 1;
             player.invincibility_timer = cooldown;
             println!("Player took damage! Remaining lives: {}/3", &player.lives);
-            if player.lives <= 0{
+            if player.lives <= 0 {
                 *player_death = true;
             }
         }
@@ -594,7 +594,7 @@ fn system_ghost_ai(world: &mut hecs::World, player_death: &mut bool, dt: f32) {
             }
         }
     }
-    if should_die{
+    if should_die {
         player_damage(world, player_death);
     }
 }
@@ -622,25 +622,33 @@ fn system_orbit_ai(state: &mut Level1State, dt: f32) {
             let y = transform.position.y;
             let dx = target_pos.x; // player x
             let dy = target_pos.y; // player y
-            if !orbit_ai.is_orbiting && difference.length() <= 300.0 {
+            let r = difference.length();
+            if r >= 250.0 && r <= 350.0 {
                 orbit_ai.is_orbiting = true;
-                let delta_x = x - dx;
-                let delta_y = y - dy;
-                orbit_ai.angle = delta_y.atan2(delta_x).to_degrees();
-            }
-            if difference.length() >= 400.0 {
-                orbit_ai.is_orbiting = false;
+            } else {
+                if r < 250.0 {
+                    let delta_x = x - dx;
+                    let delta_y = y - dy;
+                    orbit_ai.angle = delta_y.atan2(delta_x).to_degrees();
+                } else {
+                    orbit_ai.is_orbiting = false;
+                }
             }
             if orbit_ai.is_orbiting {
-                orbit_ai.angle += orbit_ai.angular_speed * dt;
                 let angle = (orbit_ai.angle).to_radians();
-                let mut goto_pos = transform.position;
-                goto_pos.x = dx + angle.cos() * 300.0;
-                goto_pos.y = dy + angle.sin() * 300.0;
-                transform.position = transform.position.lerp(goto_pos, 10.0 * dt);
-            } else if difference.length() <= orbit_ai.radius_ghosting {
-                orbit_ai.velocity = difference.normalize() * orbit_ai.speed;
+                orbit_ai.target_pos.x = dx + angle.cos() * 300.0;
+                orbit_ai.target_pos.y = dy + angle.sin() * 300.0;
+            }
+            if r <= orbit_ai.radius_ghosting {
+                if r >= 400.0 {
+                    orbit_ai.target_pos = target_pos;
+                }
+                orbit_ai.velocity =
+                    (orbit_ai.target_pos - transform.position).normalize() * orbit_ai.speed;
                 transform.position += dt * orbit_ai.velocity;
+            }
+            if transform.position.distance(orbit_ai.target_pos) <= 10.0 {
+                orbit_ai.angle += orbit_ai.angular_speed * dt;
             }
         }
     }
@@ -715,7 +723,7 @@ fn system_bullets(world: &mut hecs::World, player_death: &mut bool, mob_count: &
             }
         }
     }
-    if should_die{
+    if should_die {
         player_damage(world, player_death);
     }
     for bullet in bullets_ids_to_kill.iter() {
@@ -956,7 +964,7 @@ fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32, rng: &mut ThreadRng)
     ];
     let mut enemy_animation_state = components::Animation::default();
     enemy_animation_state.state.play(&idle_animation_snake);
-    if rng.gen_bool(0.7) {
+    if rng.gen_bool(0.0) {
         world.spawn((
             components::Transform::with_position(x as f32, y as f32),
             components::Sprite {
