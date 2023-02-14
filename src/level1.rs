@@ -29,7 +29,9 @@ pub struct Level1State<'a> {
     sound_dash: sdl2::mixer::Chunk,
     sound_shoot: sdl2::mixer::Chunk,
     sound_crystal: sdl2::mixer::Chunk,
+    player_lives: u32,
     player_death: bool,
+    player_invincibility_timer: f32,
     mob_count: u32,
     particles_state: sdl2_particles::ParticlesState,
 }
@@ -58,6 +60,8 @@ impl<'a> Level1State<'a> {
             player_death: false,
             mob_count: 0,
             particles_state: sdl2_particles::ParticlesState::init(100),
+            player_lives: 3,
+            player_invincibility_timer: 0.0,
         }
     }
 }
@@ -297,9 +301,20 @@ pub fn update(
     if state.points >= 3 {
         *level = Level::Intro;
     }
-    if state.player_death {
-        *state = Level1State::new(canvas);
-        *level = Level::Menu;
+    state.player_invincibility_timer -= dt;
+    if state.player_death{
+        state.player_death = false;
+        if state.player_invincibility_timer <= 0.0 {
+            let cooldown = 0.5;
+            state.player_invincibility_timer = cooldown;
+            state.player_lives -= 1;
+            println!("Player took damage! Remaining lives: {}", &state.player_lives);
+            
+            if state.player_lives == 0{
+                *state = Level1State::new(canvas);
+                *level = Level::Menu;
+            }
+        }
     }
     for (_id, player) in state.world.query_mut::<&mut components::Player>() {
         player_state::handle_state(
@@ -690,6 +705,7 @@ fn system_bullets(world: &mut hecs::World, player_death: &mut bool, mob_count: &
                         sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y);
                     if bullet_rect.has_intersection(player_rect) {
                         *player_death = true;
+                        bullets_ids_to_kill.push(bullet_id);
                     }
                 }
             }
