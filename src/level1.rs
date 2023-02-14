@@ -29,9 +29,7 @@ pub struct Level1State<'a> {
     sound_dash: sdl2::mixer::Chunk,
     sound_shoot: sdl2::mixer::Chunk,
     sound_crystal: sdl2::mixer::Chunk,
-    player_lives: u32,
     player_death: bool,
-    player_invincibility_timer: f32,
     mob_count: u32,
     particles_state: sdl2_particles::ParticlesState,
 }
@@ -60,8 +58,6 @@ impl<'a> Level1State<'a> {
             player_death: false,
             mob_count: 0,
             particles_state: sdl2_particles::ParticlesState::init(100),
-            player_lives: 3,
-            player_invincibility_timer: 0.0,
         }
     }
 }
@@ -301,20 +297,9 @@ pub fn update(
     if state.points >= 3 {
         *level = Level::Intro;
     }
-    state.player_invincibility_timer -= dt;
     if state.player_death{
-        state.player_death = false;
-        if state.player_invincibility_timer <= 0.0 {
-            let cooldown = 0.5;
-            state.player_invincibility_timer = cooldown;
-            state.player_lives -= 1;
-            println!("Player took damage! Remaining lives: {}", &state.player_lives);
-            
-            if state.player_lives == 0{
-                *state = Level1State::new(canvas);
-                *level = Level::Menu;
-            }
-        }
+        *state = Level1State::new(canvas);
+        *level = Level::Menu;
     }
     for (_id, player) in state.world.query_mut::<&mut components::Player>() {
         player_state::handle_state(
@@ -407,6 +392,20 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
         let _ = canvas.copy(texture, src, dst);
     }
     canvas.present();
+}
+
+fn player_damage(world: &mut hecs::World, player_death: &mut bool){
+    let cooldown = 0.5;
+    for (_, player) in world.query_mut::<&mut components::Player>(){
+        if player.invincibility_timer <= 0.0{
+            player.lives -= 1;
+            player.invincibility_timer = cooldown;
+            println!("Player took damage! Remaining lives: {}/3", &player.lives);
+            if player.lives <= 0{
+                *player_death = true;
+            }
+        }
+    }
 }
 
 fn system_shooting_enemies(state: &mut Level1State, dt: f32) {
@@ -551,6 +550,7 @@ fn system_crystal(
 fn system_ghost_ai(world: &mut hecs::World, player_death: &mut bool, dt: f32) {
     let mut optional_player_position = None;
     let mut optional_player_size = None;
+    let mut should_die = false;
     for (_id, (transform, sprite, _)) in &mut world.query::<(
         &components::Transform,
         &components::Sprite,
@@ -589,10 +589,13 @@ fn system_ghost_ai(world: &mut hecs::World, player_death: &mut bool, dt: f32) {
                 sprite.size.x,
                 sprite.size.y,
             )) {
-                *player_death = true;
+                should_die = true;
                 break;
             }
         }
+    }
+    if should_die{
+        player_damage(world, player_death);
     }
 }
 
@@ -670,6 +673,7 @@ fn system_bullets(world: &mut hecs::World, player_death: &mut bool, mob_count: &
     }
     let mut bullets_ids_to_kill = vec![];
     let mut enemies_ids_to_kill = vec![];
+    let mut should_die = false;
     for (bullet_id, (transform, sprite, bullet)) in &mut world.query::<(
         &components::Transform,
         &components::Sprite,
@@ -704,12 +708,15 @@ fn system_bullets(world: &mut hecs::World, player_death: &mut bool, mob_count: &
                     let player_rect =
                         sdl2::rect::Rect::new(pos.x as i32, pos.y as i32, size.x, size.y);
                     if bullet_rect.has_intersection(player_rect) {
-                        *player_death = true;
+                        should_die = true;
                         bullets_ids_to_kill.push(bullet_id);
                     }
                 }
             }
         }
+    }
+    if should_die{
+        player_damage(world, player_death);
     }
     for bullet in bullets_ids_to_kill.iter() {
         let _ = world.despawn(*bullet);
@@ -766,6 +773,7 @@ fn system_player_controller(
         controller.dashing_time_left -= dt;
         controller.dashing_timer -= dt;
         controller.attack_timer -= dt;
+        player.invincibility_timer -= dt;
         match player.state_machine.state {
             player_state::State::Moving => {
                 if input_state.dash {

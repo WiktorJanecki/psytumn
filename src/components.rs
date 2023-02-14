@@ -59,6 +59,8 @@ pub struct Bullet {
 
 pub struct Player {
     pub state_machine: player_state::StateMachine,
+    pub lives: u8,
+    pub invincibility_timer: f32,
 }
 
 impl Default for Player {
@@ -69,6 +71,8 @@ impl Default for Player {
                 dashing_time_left: 0.0,
                 dashing_cooldown_timer: 0.0,
             },
+            lives: 3,
+            invincibility_timer: 0.0,
         }
     }
 }
