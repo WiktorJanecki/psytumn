@@ -968,7 +968,7 @@ fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32, rng: &mut ThreadRng)
     ];
     let mut enemy_animation_state = components::Animation::default();
     enemy_animation_state.state.play(&idle_animation_snake);
-    if rng.gen_bool(0.0) {
+    if rng.gen_bool(0.67) {
         world.spawn((
             components::Transform::with_position(x as f32, y as f32),
             components::Sprite {
