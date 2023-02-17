@@ -8,6 +8,8 @@ pub struct IntroState {
     texture_manager: TextureManager,
     slides: Vec<IntroSlide>,
     timer: f32,
+    intro_sound: sdl2::mixer::Chunk,
+    played_for_slide: usize,
 }
 
 struct IntroSlide{
@@ -23,6 +25,8 @@ impl IntroState {
             texture_manager: TextureManager::new(),
             timer: 0.0,
             slides: vec![],
+            intro_sound: sdl2::mixer::Chunk::from_file("res/intro.wav").unwrap(),
+            played_for_slide: 0,
         }
     }
 }
@@ -35,6 +39,7 @@ pub fn update(state: &mut IntroState, dt: f32, _input_state: &mut InputState, le
                             IntroSlide{opacity: 0.0, texture: &"res/intro3.png"}];//
     }
     state.timer += dt;
+    let current_slide = (state.timer / SLIDE_TIME).floor() as usize;
 
     for (index, slide) in state.slides.iter_mut().enumerate(){
         slide.opacity = get_opacity(state.timer, index);
@@ -44,6 +49,11 @@ pub fn update(state: &mut IntroState, dt: f32, _input_state: &mut InputState, le
     let after_slideshow_delay = 1.0;
     if state.timer >= slide_count as f32 * SLIDE_TIME + after_slideshow_delay{
         *level = Level::Menu;
+    }
+    if current_slide >= state.played_for_slide && current_slide < slide_count{
+        state.played_for_slide+=1;
+        let _ = sdl2::mixer::Channel::all().play(&state.intro_sound, 0);
+
     }
 }
 const SLIDE_TIME:f32 = 4.0;
