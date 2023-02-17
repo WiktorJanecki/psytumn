@@ -9,7 +9,7 @@ edition = "2021"
 glam = "0.22.0"
 hecs = "0.9.1"
 sdl2 = { version = "0.35.2", features = ["image", "mixer", "unsafe_textures"] }
-sdl2_particles = "0.2.0"
+sdl2_particles = { version = "0.3",  features = ["use-unsafe_textures"]}
 sdl2_animation = {path = "../sdl2_animation"}
 time = "0.3.17"
 rand = "0.8.5"
