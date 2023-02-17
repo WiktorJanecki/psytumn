@@ -57,7 +57,7 @@ fn main() {
     let mut fps_counter = 0;
     let mut fps = 0;
 
-    let mut level = Level::Intro;
+    let mut level = Level::Menu;
     let mut intro_state = IntroState::new(&mut canvas);
     let mut level1_state = Level1State::new(&mut canvas);
     let mut menu_state = MenuState::new(&mut canvas);

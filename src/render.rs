@@ -44,8 +44,8 @@ impl Tilemap {
             values,
             tile_width,
             tile_height,
-            tilemap_height: height * tile_height,
-            tilemap_width: width * tile_width,
+            tilemap_height: height * tile_height * 2, // TODO: SCALE
+            tilemap_width: width * tile_width * 2, 
         }
     }
     pub fn get(self: &Self, x: usize, y: usize) -> Option<&Tile> {

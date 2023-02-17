@@ -70,6 +70,8 @@ pub fn update(
 ) {
     puffin::profile_scope!("update");
     let mut rng = rand::thread_rng();
+    let map_bound_x = -state.tilemap.position().x as f32;
+    let map_bound_y = -state.tilemap.position().y as f32;
     if !state.update_started {
         state.update_started = true;
 
@@ -137,8 +139,8 @@ pub fn update(
         let mut dash_crystal_count = 0;
         while dash_crystal_count <= 50 {
             let mut position = Vec2::new(
-                rng.gen_range(-1600.0..1600.0),
-                rng.gen_range(-1600.0..1600.0),
+                rng.gen_range(-map_bound_x..map_bound_x),
+                rng.gen_range(-map_bound_y..map_bound_y),
             );
             let mut should_create_next_one = true;
             while should_create_next_one {
@@ -239,8 +241,8 @@ pub fn update(
             state.mob_count += 1;
             create_enemy_on(
                 &mut state.world,
-                rng.gen_range(-1600..1600),
-                rng.gen_range(-1600..1600),
+                rng.gen_range(-map_bound_x as i32..map_bound_x as i32),
+                rng.gen_range(-map_bound_y as i32..map_bound_y as i32),
                 &mut rng,
             );
         }
@@ -257,8 +259,8 @@ pub fn update(
         state.enemy_spawner_timer = enemy_spawn_cooldown;
         create_enemy_on(
             &mut state.world,
-            rng.gen_range(-1600..1600),
-            rng.gen_range(-1600..1600),
+            rng.gen_range(-map_bound_x as i32..map_bound_x as i32),
+            rng.gen_range(-map_bound_y as i32..map_bound_y as i32),
             &mut rng,
         );
     }
@@ -292,7 +294,7 @@ pub fn update(
         &mut state.mob_count,
         dt,
     );
-    system_camera_follow(&state.world, &mut state.camera, dt);
+    system_camera_follow(&state.world, &mut state.camera, dt); // TODO: SCALING
     system_animation(&mut state.world, dt);
     if state.points >= 3 {
         *level = Level::ResetLevel1;
