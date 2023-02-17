@@ -1,4 +1,4 @@
-use crate::{input::InputState, level1::Level1State, menu::MenuState, intro::IntroState};
+use crate::{input::InputState, level1::Level1State, menu::{MenuState, unblock_button}, intro::IntroState};
 
 mod components;
 mod input;
@@ -61,6 +61,10 @@ fn main() {
     let mut intro_state = IntroState::new(&mut canvas);
     let mut level1_state = Level1State::new(&mut canvas);
     let mut menu_state = MenuState::new(&mut canvas);
+
+    unblock_button(&mut menu_state, 0);
+    unblock_button(&mut menu_state, 1);
+    unblock_button(&mut menu_state, 3);
 
     loop {
         puffin::GlobalProfiler::lock().new_frame();

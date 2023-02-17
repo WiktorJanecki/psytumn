@@ -1,5 +1,5 @@
 use glam::{UVec2, Vec2};
-use hecs::With;
+use hecs::{With, Without};
 use sdl2::{render::TextureCreator, video::WindowContext};
 
 use crate::{components, input::InputState, render::Camera, texturemanager::TextureManager, Level};
@@ -12,6 +12,7 @@ pub struct MenuState {
     world: hecs::World,
     current_button: usize,
     button_pushed: bool,
+    buttons_state: u32,
 }
 
 impl MenuState {
@@ -24,6 +25,7 @@ impl MenuState {
             world: hecs::World::new(),
             current_button: 1,
             button_pushed: false,
+            buttons_state: 0,
         }
     }
 }
@@ -67,7 +69,7 @@ pub fn update(state: &mut MenuState, dt: f32, input_state: &mut InputState, leve
         }
     }
 
-    if input_state.attack || input_state.dash {
+    if (input_state.attack || input_state.dash) && is_button_availible(state.buttons_state, state.current_button) {
         match state.current_button {
             0 => input_state.quit = true,
             1 => {}
@@ -84,9 +86,33 @@ pub fn render(state: &mut MenuState, canvas: &mut sdl2::render::Canvas<sdl2::vid
     canvas.set_draw_color(sdl2::pixels::Color::BLACK);
     canvas.clear();
 
-    for (id, (sprite, transform)) in &mut state
+    for (id, (sprite, transform, _)) in &mut state
         .world
-        .query::<(&components::Sprite, &components::Transform)>()
+        .query::<(&components::Sprite, &components::Transform, &Button)>()
+    {
+        let dst = sdl2::rect::Rect::new(
+            state.camera.x() + transform.position.x as i32,
+            state.camera.y() + transform.position.y as i32,
+            sprite.size.x,
+            sprite.size.y,
+        );
+        let src = state
+            .world
+            .entity(id)
+            .unwrap()
+            .get::<&components::Animation>()
+            .and_then(|f| Some(f.state.get_src()));
+        let texture = state
+            .texture_manager
+            .texture(sprite.filename, &state.texture_creator);
+        let index = transform.position.x / 256.0;
+        if is_button_availible(state.buttons_state, index as usize){
+            let _ = canvas.copy(texture, src, dst);
+        }
+    }
+    for (id, (sprite, transform)) in &mut state
+    .world
+    .query::<Without<(&components::Sprite, &components::Transform), &Button>>()
     {
         let dst = sdl2::rect::Rect::new(
             state.camera.x() + transform.position.x as i32,
@@ -109,6 +135,7 @@ pub fn render(state: &mut MenuState, canvas: &mut sdl2::render::Canvas<sdl2::vid
     canvas.present();
 }
 
+struct Button;
 pub fn spawn_button(world: &mut hecs::World, texture: &'static str, index: usize) {
     let spacing = 256;
     world.spawn((
@@ -117,7 +144,16 @@ pub fn spawn_button(world: &mut hecs::World, texture: &'static str, index: usize
             size: UVec2::new(128, 128),
         },
         components::Transform::with_position((spacing * index) as f32, 0.0),
+        Button,
     ));
+}
+
+pub fn unblock_button(state: &mut MenuState, index: usize){
+    state.buttons_state = state.buttons_state | (0b1<<index);
+}
+
+fn is_button_availible(buttons_state: u32, index: usize) -> bool{
+    return (buttons_state & (1 << index)) != 0
 }
 
 fn system_camera_follow(world: &hecs::World, camera: &mut Camera, dt: f32) {
