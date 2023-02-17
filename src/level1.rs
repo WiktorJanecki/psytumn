@@ -14,7 +14,7 @@ use crate::{
     Level,
 };
 
-const MOB_LIMIT: u32 = 20;
+const MOB_LIMIT: u32 = 320;
 pub struct Level1State<'a> {
     update_started: bool,
     texture_creator: TextureCreator<WindowContext>,
@@ -47,7 +47,7 @@ impl<'a> Level1State<'a> {
             texture_manager: TextureManager::new(),
             world: hecs::World::new(),
             camera: Camera::new(),
-            tilemap: Tilemap::new(50, 50, 32, 32),
+            tilemap: Tilemap::new(200, 200, 32, 32),
             points: 0,
             enemy_spawner_timer: 0.0,
             music,
@@ -137,7 +137,7 @@ pub fn update(
             }
         }
         let mut dash_crystal_count = 0;
-        while dash_crystal_count <= 50 {
+        while dash_crystal_count <= 800 {
             let mut position = Vec2::new(
                 rng.gen_range(-map_bound_x..map_bound_x),
                 rng.gen_range(-map_bound_y..map_bound_y),
@@ -166,8 +166,8 @@ pub fn update(
         }
         {
             // GENERATE CRYSTALS IN CORNERS
-            let map_size_x = 49;
-            let map_size_y = 49;
+            let map_size_x = 199;
+            let map_size_y = 199;
             let mut max_x = 5;
             let mut max_y = 5;
             loop {
@@ -319,44 +319,46 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
     canvas.clear();
     let scale = 2;
     // render tilemap
-    state
+    'xses_loop: for (x, xses) in state
         .tilemap
         .values
         .iter()
-        .enumerate()
-        .for_each(|(x, xses)| {
-            xses.iter()
-                .map(|f| f.as_ref())
-                .enumerate()
-                .for_each(|(y, tile)| {
-                    if let Some(tile) = tile {
-                        let texture = state
-                            .texture_manager
-                            .texture(tile.filename, &state.texture_creator);
-                        let dst = sdl2::rect::Rect::new(
-                            state.tilemap.position().x
-                                + state.camera.x()
-                                + (state.tilemap.tile_width * scale) as i32 * x as i32,
-                            state.tilemap.position().y
-                                + state.camera.y()
-                                + (state.tilemap.tile_height * scale) as i32 * y as i32,
-                            state.tilemap.tile_width * scale,
-                            state.tilemap.tile_height * scale,
-                        );
-                        // render only if dst is in screen bounds + offset
-                        let offset = 100;
-                        if !dst.has_intersection(sdl2::rect::Rect::new(
-                            -offset,
-                            -offset,
-                            1280 + offset as u32,
-                            720 + offset as u32,
-                        )) {
-                            return;
-                        }
-                        let _ = canvas.copy(texture, None, dst);
-                    }
-                })
-        });
+        .enumerate(){
+        'yses_loop: for (y, tile) in xses.iter()
+            .map(|f| f.as_ref())
+            .enumerate() {
+            if let Some(tile) = tile {
+                let texture = state
+                    .texture_manager
+                    .texture(tile.filename, &state.texture_creator);
+                let dst = sdl2::rect::Rect::new(
+                    state.tilemap.position().x
+                        + state.camera.x()
+                        + (state.tilemap.tile_width * scale) as i32 * x as i32,
+                    state.tilemap.position().y
+                        + state.camera.y()
+                        + (state.tilemap.tile_height * scale) as i32 * y as i32,
+                    state.tilemap.tile_width * scale,
+                    state.tilemap.tile_height * scale,
+                );
+                // render only if dst is in screen bounds + offset
+                let offset = 100;
+                if dst.x >= offset + 1280{
+                    break 'xses_loop;
+                }
+                if dst.y >= offset + 720{
+                    break 'yses_loop;
+                }
+                if dst.x < -offset{
+                    continue 'xses_loop;
+                }
+                if dst.y < -offset{
+                    continue 'yses_loop;
+                }
+                let _ = canvas.copy(texture, None, dst);
+            }
+        }
+    }
     // render particles
     state
         .particles_state
