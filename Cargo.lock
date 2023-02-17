@@ -120,6 +120,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "easey"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d05b42de8fd97caad98d214eb498e7803add7975e6be710bc99bb00303cbd470"
+
+[[package]]
 name = "getrandom"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -274,6 +280,7 @@ name = "psytumn"
 version = "0.1.0"
 dependencies = [
  "bracket-noise",
+ "easey",
  "glam",
  "hecs",
  "puffin",

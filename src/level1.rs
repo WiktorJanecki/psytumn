@@ -295,7 +295,7 @@ pub fn update(
     system_camera_follow(&state.world, &mut state.camera, dt);
     system_animation(&mut state.world, dt);
     if state.points >= 3 {
-        *level = Level::Intro;
+        *level = Level::ResetLevel1;
     }
     if state.player_death {
         *state = Level1State::new(canvas);
@@ -397,7 +397,7 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
 fn player_damage(world: &mut hecs::World, player_death: &mut bool) {
     let cooldown = 0.5;
     for (_, player) in world.query_mut::<&mut components::Player>() {
-        if player.invincibility_timer <= 0.0 && false {
+        if player.invincibility_timer <= 0.0 {
             player.lives -= 1;
             player.invincibility_timer = cooldown;
             println!("Player took damage! Remaining lives: {}/3", &player.lives);

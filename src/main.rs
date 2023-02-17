@@ -1,4 +1,4 @@
-use crate::{input::InputState, level1::Level1State, menu::MenuState};
+use crate::{input::InputState, level1::Level1State, menu::MenuState, intro::IntroState};
 
 mod components;
 mod input;
@@ -7,13 +7,15 @@ mod render;
 mod systems;
 mod texturemanager;
 
-mod level1;
+mod intro;
 mod menu;
+mod level1;
 
 pub enum Level {
     Intro,
     Menu,
     Level1,
+    ResetLevel1,
 }
 
 fn main() {
@@ -55,7 +57,8 @@ fn main() {
     let mut fps_counter = 0;
     let mut fps = 0;
 
-    let mut level = Level::Menu;
+    let mut level = Level::Intro;
+    let mut intro_state = IntroState::new(&mut canvas);
     let mut level1_state = Level1State::new(&mut canvas);
     let mut menu_state = MenuState::new(&mut canvas);
 
@@ -85,12 +88,8 @@ fn main() {
 
         match level {
             Level::Intro => {
-                canvas.set_draw_color(sdl2::pixels::Color::RGB(3, 0, 52));
-                canvas.clear();
-                level1_state = Level1State::new(&mut canvas);
-                let _ = sdl2::mixer::Channel::all().play(&sound_win, 0);
-                level = Level::Level1;
-                canvas.present();
+                intro::update(&mut intro_state, dt, &mut input_state, &mut level);
+                intro::render(&mut intro_state, &mut canvas);
             }
             Level::Menu => {
                 menu::update(&mut menu_state, dt, &mut input_state, &mut level);
@@ -99,6 +98,14 @@ fn main() {
             Level::Level1 => {
                 level1::update(&mut level1_state, &mut canvas, dt, &input_state, &mut level);
                 level1::render(&mut level1_state, &mut canvas);
+            }
+            Level::ResetLevel1 => {
+                canvas.set_draw_color(sdl2::pixels::Color::RGB(3, 0, 52));
+                canvas.clear();
+                level1_state = Level1State::new(&mut canvas);
+                let _ = sdl2::mixer::Channel::all().play(&sound_win, 0);
+                level = Level::Level1;
+                canvas.present();
             }
         }
     }
