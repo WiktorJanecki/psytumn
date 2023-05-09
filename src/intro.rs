@@ -1,6 +1,6 @@
 use sdl2::{render::TextureCreator, video::WindowContext};
 
-use crate::{input::InputState, texturemanager::TextureManager, Level};
+use crate::{input::InputState, texturemanager::TextureManager, Level, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 pub struct IntroState {
     update_started: bool,
@@ -87,7 +87,7 @@ pub fn render(state: &mut IntroState, canvas: &mut sdl2::render::Canvas<sdl2::vi
     canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
     canvas.clear();
     for slide in state.slides.iter(){
-        let dst = sdl2::rect::Rect::new(0,0,1280,720);
+        let dst = sdl2::rect::Rect::new(0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
         let texture = state
             .texture_manager
             .texture_mut(slide.texture, &state.texture_creator);

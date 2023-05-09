@@ -1,6 +1,5 @@
 use bracket_noise::prelude::{FastNoise, NoiseType};
 use glam::{UVec2, Vec2};
-use hecs::With;
 use rand::{rngs::ThreadRng, Rng};
 use sdl2::{render::TextureCreator, video::WindowContext};
 use sdl2_animation::{Animation, Keyframe};
@@ -11,7 +10,7 @@ use crate::{
     player_state,
     render::{Camera, Tile, Tilemap},
     texturemanager::TextureManager,
-    Level,
+    Level, systems::system_camera_follow,
 };
 
 const MOB_LIMIT: u32 = 320;
@@ -47,7 +46,7 @@ impl<'a> Level1State<'a> {
             texture_manager: TextureManager::new(),
             world: hecs::World::new(),
             camera: Camera::new(),
-            tilemap: Tilemap::new(200, 200, 32, 32),
+            tilemap: Tilemap::new(200, 200, 64, 64),
             points: 0,
             enemy_spawner_timer: 0.0,
             music,
@@ -101,7 +100,7 @@ pub fn update(
             components::Transform::default(),
             components::Sprite {
                 filename: "res/player.png",
-                size: UVec2::new(40, 40),
+                size: UVec2::new(80, 80),
             },
             components::CameraTarget,
             components::PlayerController::default(),
@@ -294,7 +293,7 @@ pub fn update(
         &mut state.mob_count,
         dt,
     );
-    system_camera_follow(&state.world, &mut state.camera, dt); // TODO: SCALING
+    system_camera_follow(&state.world, &mut state.camera, dt);
     system_animation(&mut state.world, dt);
     if state.points >= 3 {
         *level = Level::ResetLevel1;
@@ -317,7 +316,6 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
     puffin::profile_scope!("render");
     canvas.set_draw_color(sdl2::pixels::Color::RGB(39, 9, 31));
     canvas.clear();
-    let scale = 2;
     // render tilemap
     'xses_loop: for (x, xses) in state
         .tilemap
@@ -334,12 +332,12 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
                 let dst = sdl2::rect::Rect::new(
                     state.tilemap.position().x
                         + state.camera.x()
-                        + (state.tilemap.tile_width * scale) as i32 * x as i32,
+                        + (state.tilemap.tile_width) as i32 * x as i32,
                     state.tilemap.position().y
                         + state.camera.y()
-                        + (state.tilemap.tile_height * scale) as i32 * y as i32,
-                    state.tilemap.tile_width * scale,
-                    state.tilemap.tile_height * scale,
+                        + (state.tilemap.tile_height) as i32 * y as i32,
+                    state.tilemap.tile_width,
+                    state.tilemap.tile_height,
                 );
                 // render only if dst is in screen bounds + offset
                 let offset = 100;
@@ -371,8 +369,8 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
         let dst = sdl2::rect::Rect::new(
             state.camera.x() + transform.position.x as i32,
             state.camera.y() + transform.position.y as i32,
-            sprite.size.x * scale,
-            sprite.size.y * scale,
+            sprite.size.x,
+            sprite.size.y,
         );
         // render only if dst is in screen bounds + offset
         let offset = 100;
@@ -740,18 +738,6 @@ fn system_bullets(world: &mut hecs::World, player_death: &mut bool, mob_count: &
     }
 }
 
-fn system_camera_follow(world: &hecs::World, camera: &mut Camera, dt: f32) {
-    for (_id, transform) in
-        &mut world.query::<With<&components::Transform, &components::CameraTarget>>()
-    {
-        let smooth_value = 15.0;
-        let offset = Vec2::new(-1280.0 / 2.0 + 40.0, -720.0 / 2.0 + 40.0); // TODO: MAKE IT NOT HARDCODED
-        let target_position = transform.position + offset;
-        let smoothed_position = camera.position.lerp(target_position, smooth_value * dt);
-        camera.position = smoothed_position;
-    }
-}
-
 fn system_player_controller(
     world: &mut hecs::World,
     player_state_input: &mut player_state::Input,
@@ -895,7 +881,7 @@ fn create_dash_crystal_on(state: &mut Level1State, x: i32, y: i32) {
         },
         components::Sprite {
             filename: "res/crystal.png",
-            size: UVec2::new(40, 40),
+            size: UVec2::new(80, 80),
         },
         components::DashingCrystal,
         crystal_animation_state,
@@ -942,7 +928,7 @@ fn create_point_crystal_on(state: &mut Level1State, x: i32, y: i32) {
         },
         components::Sprite {
             filename: "res/crystal_point.png",
-            size: UVec2::new(40, 40),
+            size: UVec2::new(80, 80),
         },
         components::PointCrystal,
         crystal_animation_state,
@@ -973,7 +959,7 @@ fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32, rng: &mut ThreadRng)
             components::Transform::with_position(x as f32, y as f32),
             components::Sprite {
                 filename: "res/snake.png",
-                size: UVec2::new(40, 40),
+                size: UVec2::new(64, 64),
             },
             components::GhostAI::default(),
             components::Enemy,
@@ -984,7 +970,7 @@ fn create_enemy_on(world: &mut hecs::World, x: i32, y: i32, rng: &mut ThreadRng)
             components::Transform::with_position(x as f32, y as f32),
             components::Sprite {
                 filename: "res/snake.png",
-                size: UVec2::new(40, 40),
+                size: UVec2::new(64, 64),
             },
             components::OrbitAI::default(),
             components::ShootingEnemy::default(),
@@ -1005,7 +991,7 @@ fn create_bullet(
         components::Transform::with_position(position.x, position.y),
         components::Sprite {
             filename: "res/bullet.png",
-            size: UVec2::new(16, 16),
+            size: UVec2::new(32, 32),
         },
         components::Bullet {
             velocity: direction * speed,

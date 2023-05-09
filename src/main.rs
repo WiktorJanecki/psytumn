@@ -18,6 +18,9 @@ pub enum Level {
     ResetLevel1,
 }
 
+pub const SCREEN_WIDTH: u32 = 1280;
+pub const SCREEN_HEIGHT: u32 = 720;
+
 fn main() {
     const VERSION: u32 = 2;
     #[cfg(feature = "puffin")]
@@ -44,7 +47,7 @@ fn main() {
     sound_win.set_volume(10);
 
     let window = video_subsystem
-        .window("Psytumn", 1280, 720)
+        .window("Psytumn", SCREEN_WIDTH, SCREEN_HEIGHT)
         .position_centered()
         .build()
         .unwrap();
@@ -104,12 +107,12 @@ fn main() {
                 level1::render(&mut level1_state, &mut canvas);
             }
             Level::ResetLevel1 => {
-                canvas.set_draw_color(sdl2::pixels::Color::RGB(3, 0, 52));
-                canvas.clear();
+                //canvas.set_draw_color(sdl2::pixels::Color::RGB(3, 0, 52));
+                //canvas.clear();
                 level1_state = Level1State::new(&mut canvas);
                 let _ = sdl2::mixer::Channel::all().play(&sound_win, 0);
                 level = Level::Level1;
-                canvas.present();
+                //canvas.present();
             }
         }
     }

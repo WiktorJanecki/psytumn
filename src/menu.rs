@@ -1,8 +1,8 @@
-use glam::{UVec2, Vec2};
+use glam::{UVec2};
 use hecs::{With, Without};
 use sdl2::{render::TextureCreator, video::WindowContext};
 
-use crate::{components, input::InputState, render::Camera, texturemanager::TextureManager, Level};
+use crate::{components, input::InputState, render::Camera, texturemanager::TextureManager, Level, systems::system_camera_follow};
 
 pub struct MenuState {
     update_started: bool,
@@ -154,16 +154,4 @@ pub fn unblock_button(state: &mut MenuState, index: usize){
 
 fn is_button_availible(buttons_state: u32, index: usize) -> bool{
     return (buttons_state & (1 << index)) != 0
-}
-
-fn system_camera_follow(world: &hecs::World, camera: &mut Camera, dt: f32) {
-    for (_id, transform) in
-        &mut world.query::<With<&components::Transform, &components::CameraTarget>>()
-    {
-        let smooth_value = 15.0;
-        let offset = Vec2::new(-1280.0 / 2.0 + 64.0, -720.0 / 2.0 + 64.0); // TODO: MAKE IT NOT HARDCODED
-        let target_position = transform.position + offset;
-        let smoothed_position = camera.position.lerp(target_position, smooth_value * dt);
-        camera.position = smoothed_position;
-    }
 }
