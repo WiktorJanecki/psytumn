@@ -10,7 +10,7 @@ use crate::{
     player_state,
     render::{Camera, Tile, Tilemap},
     texturemanager::TextureManager,
-    Level, systems::system_camera_follow,
+    Level, systems::system_camera_follow, SCREEN_WIDTH, SCREEN_HEIGHT,
 };
 
 const MOB_LIMIT: u32 = 320;
@@ -341,10 +341,10 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
                 );
                 // render only if dst is in screen bounds + offset
                 let offset = 100;
-                if dst.x >= offset + 1280{
+                if dst.x >= offset + SCREEN_WIDTH as i32{
                     break 'xses_loop;
                 }
-                if dst.y >= offset + 720{
+                if dst.y >= offset + SCREEN_HEIGHT as i32{
                     break 'yses_loop;
                 }
                 if dst.x < -offset{
@@ -377,8 +377,8 @@ pub fn render(state: &mut Level1State, canvas: &mut sdl2::render::Canvas<sdl2::v
         if !dst.has_intersection(sdl2::rect::Rect::new(
             -offset,
             -offset,
-            1280 + offset as u32,
-            720 + offset as u32,
+            SCREEN_WIDTH + offset as u32,
+            SCREEN_HEIGHT + offset as u32,
         )) {
             continue;
         }
