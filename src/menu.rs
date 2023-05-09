@@ -69,7 +69,7 @@ pub fn update(state: &mut MenuState, dt: f32, input_state: &mut InputState, leve
         }
     }
 
-    if (input_state.attack || input_state.dash) && is_button_availible(state.buttons_state, state.current_button) {
+    if (input_state.attack || input_state.dash) && is_button_available(state.buttons_state, state.current_button) {
         match state.current_button {
             0 => input_state.quit = true,
             1 => {}
@@ -106,7 +106,7 @@ pub fn render(state: &mut MenuState, canvas: &mut sdl2::render::Canvas<sdl2::vid
             .texture_manager
             .texture(sprite.filename, &state.texture_creator);
         let index = transform.position.x / 256.0;
-        if is_button_availible(state.buttons_state, index as usize){
+        if is_button_available(state.buttons_state, index as usize){
             let _ = canvas.copy(texture, src, dst);
         }
     }
@@ -152,6 +152,6 @@ pub fn unblock_button(state: &mut MenuState, index: usize){
     state.buttons_state = state.buttons_state | (0b1<<index);
 }
 
-fn is_button_availible(buttons_state: u32, index: usize) -> bool{
+fn is_button_available(buttons_state: u32, index: usize) -> bool{
     return (buttons_state & (1 << index)) != 0
 }
