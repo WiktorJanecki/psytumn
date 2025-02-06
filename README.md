@@ -1,6 +1,6 @@
 # Psytumn Game
 Simple 2D game written in rust without a game engine <br/>  
-<img src="preview.gif" width="auto" height="250px" />
+<img src="preview.gif" width="auto" height="400px" />
 ## How to play
 To open game run `cargo run` having in mind that SDL2 must be installed on your machine  
 Move with w/s/a/d and shoot using mouse with LMB
